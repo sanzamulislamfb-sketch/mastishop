@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SMS Dashboard</title>
+<style>
+    body {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        background: #f5f6fa;
+        margin: 0;
+        padding: 20px;
+        color: #2f3542;
+    }
+    h1 {
+        color: #e74c3c;
+        text-align: center;
+    }
+    .subtitle {
+        text-align: center;
+        color: #57606f;
+        margin-bottom: 30px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    th, td {
+        padding: 14px 16px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+    th {
+        background: #e74c3c;
+        color: white;
+        font-weight: 600;
+    }
+    tr:hover {
+        background: #fff5f5;
+    }
+    .amount {
+        font-weight: bold;
+        color: #27ae60;
+    }
+    .empty {
+        text-align: center;
+        padding: 60px 20px;
+        color: #95a5a6;
+        font-size: 18px;
+    }
+    .badge {
+        background: #eafaf1;
+        color: #27ae60;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+    }
+    .new-row {
+        animation: highlight 2s ease-out;
+    }
+    @keyframes highlight {
+        0% { background: #fff3cd; }
+        100% { background: transparent; }
+    }
+</style>
+</head>
+<body>
+    <h1>SMS Dashboard</h1>
+    <p class="subtitle">Live updates &bull; <span id="count">0</span> messages total</p>
+
+    <div id="tableWrapper">
+        <div class="empty">No messages yet. Send a test message to check.</div>
+    </div>
+
+<script>
+let lastId = 0;
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function renderTable(messages) {
+    const wrapper = document.getElementById('tableWrapper');
+    document.getElementById('count').textContent = messages.length;
+
+    if (messages.length === 0) {
+        wrapper.innerHTML = '<div class="empty">No messages yet. Send a test message to check.</div>';
+        return;
+    }
+
+    let html = '<table><tr>' +
+        '<th>#</th><th>Time</th><th>Sender</th><th>Amount</th>' +
+        '<th>Transaction ID</th><th>Payer Number</th><th>Message</th></tr>';
+
+    for (const m of messages) {
+        const rowClass = m.id > lastId ? 'new-row' : '';
+        html += `<tr class="${rowClass}">
+            <td>${m.id}</td>
+            <td>${escapeHtml(m.received_at)}</td>
+            <td><span class="badge">${escapeHtml(m.sender)}</span></td>
+            <td class="amount">${escapeHtml(m.amount || '-')}</td>
+            <td>${escapeHtml(m.trx_id || '-')}</td>
+            <td>${escapeHtml(m.payer_number || '-')}</td>
+            <td>${escapeHtml(m.message)}</td>
+        </tr>`;
+    }
+
+    html += '</table>';
+    wrapper.innerHTML = html;
+
+    if (messages.length > 0) {
+        lastId = Math.max(...messages.map(m => m.id));
+    }
+}
+
+async function fetchMessages() {
+    try {
+        const res = await fetch('/api/messages');
+        const data = await res.json();
+        renderTable(data);
+    } catch (err) {
+        console.error('Failed to fetch messages:', err);
+    }
+}
+
+fetchMessages();
+setInterval(fetchMessages, 2000);
+</script>
+</body>
+</html>

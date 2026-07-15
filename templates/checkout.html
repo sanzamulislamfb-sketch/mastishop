@@ -1,0 +1,1034 @@
+<!doctype html>
+<html lang="bn">
+    <head>
+        <script>
+        !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+        (function(){
+            // Unique event IDs — shared between Pixel and CAPI for deduplication
+            window.__pvEventId = 'pv_co_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+            window.__vcEventId = 'vc_'    + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+
+            try {
+                var extId = localStorage.getItem('fz_ext_id');
+                if (!extId) {
+                    extId = 'ext_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+                    localStorage.setItem('fz_ext_id', extId);
+                }
+                window.__fzExternalId = extId;
+                fbq('init', '{{ pixel_id }}', { external_id: extId });
+            } catch (e) {
+                fbq('init', '{{ pixel_id }}');
+            }
+
+            fbq('track', 'PageView', {}, { eventID: window.__pvEventId });
+
+            {% if product %}
+            fbq('track', 'ViewContent', {
+                content_name: '{{ product.name }}',
+                content_ids: ['{{ product_id }}'],
+                content_type: 'product',
+                value: {{ product.price }},
+                currency: 'BDT'
+            }, { eventID: window.__vcEventId });
+            {% endif %}
+
+            // Fire server-side CAPI for ViewContent after fbevents.js sets _fbp cookie
+            setTimeout(function() {
+                try {
+                    function _gc(n) { var m = document.cookie.match(new RegExp('(^| )' + n + '=([^;]+)')); return m ? m[2] : null; }
+                    var _base = {
+                        fbp: _gc('_fbp'), fbc: _gc('_fbc'),
+                        external_id: window.__fzExternalId || null,
+                        event_source_url: window.location.href
+                    };
+                    {% if product %}
+                    fetch('/api/capi/event', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(Object.assign({}, _base, {
+                            event_name: 'ViewContent',
+                            event_id: window.__vcEventId,
+                            content_name: '{{ product.name }}',
+                            content_ids: ['{{ product_id }}'],
+                            content_type: 'product',
+                            value: {{ product.price }},
+                            currency: 'BDT'
+                        }))
+                    }).catch(function(){});
+                    {% endif %}
+                } catch(e2) {}
+            }, 600);
+        })();
+        </script>
+        <noscript><img height="1" width="1" style="display:none" src="https://www.facebook.com/tr?id={{ pixel_id }}&ev=PageView&noscript=1"/></noscript>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Secure Checkout</title>
+        
+        <style>
+            * {
+                font-family: "Segoe UI", Arial, sans-serif;
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                min-height: 100vh;
+                background: linear-gradient(-45deg, #eaf3ff, #dceeff, #f0e9ff, #e6f4f1);
+                background-size: 400% 400%;
+                animation: gradientShift 12s ease infinite;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 24px 12px;
+            }
+            @keyframes gradientShift {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+            }
+
+            .panel {
+                position: relative;
+                width: 100%;
+                max-width: 640px;
+                background: #fff;
+                border-radius: 20px;
+                box-shadow: 0 20px 45px rgba(0, 87, 208, 0.14);
+                padding: 28px 36px 36px;
+                overflow: hidden;
+                animation: panelIn 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            }
+            .panel::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 6px;
+                background: linear-gradient(90deg, #0057d0, #6dc4ff, #e2136e, #f6941d);
+                background-size: 300% 100%;
+                animation: barShift 6s ease infinite;
+            }
+            @keyframes panelIn {
+                from { opacity: 0; transform: translateY(16px) scale(0.98); }
+                to { opacity: 1; transform: translateY(0) scale(1); }
+            }
+            @keyframes barShift {
+                0% { background-position: 0% 0%; }
+                100% { background-position: 100% 0%; }
+            }
+
+            .top-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                border: 1px solid #e6ecf7;
+                border-radius: 12px;
+                padding: 14px 20px;
+                margin-bottom: 28px;
+            }
+            .top-row button {
+                border: none;
+                background: none;
+                color: #94a9c7;
+                font-size: 22px;
+                cursor: pointer;
+                padding: 2px 6px;
+                line-height: 1;
+                transition: color 0.15s ease, transform 0.15s ease;
+            }
+            .top-row button:hover {
+                color: #0057d0;
+                transform: translateX(-2px);
+            }
+            .top-row a {
+                transition: color 0.15s ease, transform 0.15s ease;
+                display: inline-block;
+            }
+            .top-row a:hover {
+                color: #e2136e !important;
+                transform: rotate(90deg);
+            }
+
+            .method-logo {
+                display: flex;
+                justify-content: center;
+                margin-bottom: 28px;
+            }
+            .method-logo img {
+                height: 46px;
+                object-fit: contain;
+                animation: logoPop 0.4s ease;
+            }
+            @keyframes logoPop {
+                from { opacity: 0; transform: scale(0.8); }
+                to { opacity: 1; transform: scale(1); }
+            }
+            .method-logo .text-logo {
+                font-weight: 800;
+                font-size: 32px;
+            }
+            .method-logo .text-logo.bkash {
+                color: #e2136e;
+            }
+            .method-logo .text-logo.nagad {
+                color: #f6941d;
+            }
+
+            .info-row {
+                display: flex;
+                gap: 16px;
+                margin-bottom: 26px;
+            }
+            .info-card {
+                flex: 1;
+                border: 1px solid #e6ecf7;
+                border-radius: 12px;
+                padding: 18px 20px;
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                background: #fafcff;
+                transition: box-shadow 0.2s ease, transform 0.2s ease;
+            }
+            .info-card:hover {
+                box-shadow: 0 8px 18px rgba(0, 87, 208, 0.1);
+                transform: translateY(-2px);
+            }
+            .info-card.amount-card {
+                justify-content: center;
+                font-weight: 700;
+                font-size: 20px;
+                color: #0057d0;
+                background: linear-gradient(135deg, #eaf3ff, #f5f0ff);
+            }
+            .brand-avatar {
+                width: 52px;
+                height: 52px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, #0057d0, #3a8dff);
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                font-size: 20px;
+                flex-shrink: 0;
+            }
+            .brand-avatar-img {
+                width: 52px;
+                height: 52px;
+                border-radius: 50%;
+                object-fit: cover;
+                flex-shrink: 0;
+                box-shadow: 0 4px 10px rgba(0, 87, 208, 0.18);
+            }
+            .brand-name {
+                font-size: 19px;
+                font-weight: 600;
+                color: #4a5a75;
+            }
+
+            .method-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
+                margin-bottom: 12px;
+            }
+            .method-card {
+                border: 2px solid #e6ecf7;
+                border-radius: 14px;
+                padding: 26px 12px;
+                text-align: center;
+                cursor: pointer;
+                background: #fff;
+                transition:
+                    box-shadow 0.2s ease,
+                    border-color 0.2s ease,
+                    transform 0.2s ease;
+                animation: cardPop 0.4s ease backwards;
+            }
+            .method-grid .method-card:nth-child(2) {
+                animation-delay: 0.08s;
+            }
+            .method-card:hover {
+                border-color: #0057d0;
+                box-shadow: 0 10px 24px rgba(0, 87, 208, 0.15);
+                transform: translateY(-4px) scale(1.02);
+            }
+            .method-card:active {
+                transform: translateY(-1px) scale(0.99);
+            }
+            .method-card img {
+                height: 42px;
+                object-fit: contain;
+                margin-bottom: 12px;
+                transition: transform 0.2s ease;
+            }
+            .method-card:hover img {
+                transform: scale(1.08);
+            }
+            .method-card .label {
+                font-size: 15px;
+                color: #222;
+                font-weight: 600;
+            }
+            @keyframes cardPop {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+
+            .method-title {
+                text-align: center;
+                color: #fff;
+                background: linear-gradient(120deg, #0057d0, #3a8dff);
+                border-radius: 10px;
+                font-weight: 700;
+                font-size: 16px;
+                padding: 16px;
+                margin-bottom: 20px;
+                letter-spacing: 0.3px;
+                box-shadow: 0 6px 16px rgba(0, 87, 208, 0.25);
+            }
+
+            .pay-instructions {
+                list-style: none;
+                margin: 0 0 24px;
+                padding: 0;
+            }
+            .pay-instructions li {
+                position: relative;
+                padding-left: 20px;
+                margin-bottom: 18px;
+                font-size: 16px;
+                color: #333;
+                line-height: 1.6;
+                animation: liIn 0.35s ease backwards;
+            }
+            .pay-instructions li:nth-child(1) { animation-delay: 0.02s; }
+            .pay-instructions li:nth-child(2) { animation-delay: 0.06s; }
+            .pay-instructions li:nth-child(3) { animation-delay: 0.10s; }
+            .pay-instructions li:nth-child(4) { animation-delay: 0.14s; }
+            .pay-instructions li:nth-child(5) { animation-delay: 0.18s; }
+            .pay-instructions li:nth-child(6) { animation-delay: 0.22s; }
+            .pay-instructions li::before {
+                content: "";
+                position: absolute;
+                left: 0;
+                top: 9px;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: #0057d0;
+                box-shadow: 0 0 0 4px rgba(0, 87, 208, 0.12);
+            }
+            @keyframes liIn {
+                from { opacity: 0; transform: translateX(-8px); }
+                to { opacity: 1; transform: translateX(0); }
+            }
+
+            .copy-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                background: linear-gradient(120deg, #0057d0, #2f7dff);
+                color: #fff;
+                border: none;
+                padding: 6px 14px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                cursor: pointer;
+                margin-left: 8px;
+                transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+            }
+            .copy-btn:hover {
+                background: linear-gradient(120deg, #0667ef, #4a9bff);
+                transform: translateY(-1px) scale(1.03);
+                box-shadow: 0 6px 14px rgba(0, 87, 208, 0.25);
+            }
+            .copy-btn:active {
+                transform: translateY(0) scale(0.97);
+            }
+            .copy-btn.copied {
+                background: linear-gradient(120deg, #1e8e3e, #27ae60);
+            }
+
+            label.field-label {
+                display: block;
+                font-size: 16px;
+                font-weight: 600;
+                color: #333;
+                margin-bottom: 8px;
+            }
+            input[type="text"] {
+                width: 100%;
+                padding: 16px 18px;
+                border: 1.5px solid #dde6f5;
+                border-radius: 10px;
+                font-size: 17px;
+                margin: 0 0 22px;
+                transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            }
+            input[type="text"]:focus {
+                outline: none;
+                border-color: #0057d0;
+                box-shadow: 0 0 0 4px rgba(0, 87, 208, 0.12);
+            }
+
+            .status-box {
+                text-align: center;
+                padding: 18px;
+                border-radius: 12px;
+                margin-top: 8px;
+                font-weight: 600;
+                font-size: 16px;
+                animation: statusIn 0.35s ease;
+            }
+            .status-approved {
+                background: #eafaf1;
+                color: #27ae60;
+                box-shadow: 0 6px 16px rgba(39, 174, 96, 0.15);
+            }
+            .status-verifying {
+                background: #fff7e6;
+                color: #d68910;
+                animation: statusIn 0.35s ease, pulseGlow 1.4s ease-in-out infinite;
+            }
+            .status-rejected,
+            .status-error {
+                background: #fdecea;
+                color: #c0392b;
+                box-shadow: 0 6px 16px rgba(192, 57, 43, 0.12);
+            }
+            @keyframes statusIn {
+                from { opacity: 0; transform: translateY(8px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes pulseGlow {
+                0%, 100% { box-shadow: 0 0 0 rgba(214, 137, 16, 0.2); }
+                50% { box-shadow: 0 0 0 8px rgba(214, 137, 16, 0.08); }
+            }
+            .hidden {
+                display: none;
+            }
+
+            button.primary {
+                width: 100%;
+                padding: 18px;
+                border: none;
+                border-radius: 12px;
+                background: linear-gradient(120deg, #0057d0, #2f7dff);
+                color: #fff;
+                font-size: 17px;
+                font-weight: 700;
+                letter-spacing: 0.5px;
+                cursor: pointer;
+                transition: transform 0.15s ease, box-shadow 0.15s ease;
+                box-shadow: 0 8px 20px rgba(0, 87, 208, 0.3);
+            }
+            button.primary:hover:not(:disabled) {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 26px rgba(0, 87, 208, 0.38);
+            }
+            button.primary:active:not(:disabled) {
+                transform: translateY(0);
+            }
+            button.primary:disabled {
+                opacity: 0.75;
+                cursor: not-allowed;
+                transform: none;
+            }
+            .btn-spinner {
+                display: inline-block;
+                width: 16px;
+                height: 16px;
+                border: 2px solid rgba(255, 255, 255, 0.5);
+                border-top-color: #fff;
+                border-radius: 50%;
+                margin-right: 8px;
+                vertical-align: middle;
+                animation: spin 0.7s linear infinite;
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            #toast-container {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 1000;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                max-width: 320px;
+            }
+            .toast {
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
+                padding: 14px 16px;
+                border-radius: 10px;
+                color: #fff;
+                font-size: 14px;
+                line-height: 1.5;
+                box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+                animation: toast-in 0.25s ease-out;
+            }
+            .toast.toast-error {
+                background: linear-gradient(120deg, #d93025, #ef4a3d);
+            }
+            .toast.toast-success {
+                background: linear-gradient(120deg, #1e8e3e, #27ae60);
+            }
+            .toast.toast-info {
+                background: linear-gradient(120deg, #0057d0, #3a8dff);
+            }
+            .toast .toast-icon {
+                flex-shrink: 0;
+                font-size: 16px;
+                line-height: 1;
+                margin-top: 1px;
+            }
+            @keyframes toast-in {
+                from {
+                    opacity: 0;
+                    transform: translateX(30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+            @keyframes toast-out {
+                from {
+                    opacity: 1;
+                }
+                to {
+                    opacity: 0;
+                }
+            }
+
+            #success-step {
+                text-align: center;
+                padding: 12px 4px 4px;
+                animation: successIn 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+            }
+            @keyframes successIn {
+                from { opacity: 0; transform: translateY(14px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .success-icon {
+                width: 84px;
+                height: 84px;
+                margin: 0 auto 20px;
+                border-radius: 50%;
+                background: #eafaf1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 10px 24px rgba(39, 174, 96, 0.2);
+                animation: iconPop 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
+            }
+            .success-icon svg {
+                width: 52px;
+                height: 52px;
+            }
+            @keyframes iconPop {
+                from { opacity: 0; transform: scale(0.6); }
+                to { opacity: 1; transform: scale(1); }
+            }
+            .success-check {
+                stroke-dasharray: 40;
+                stroke-dashoffset: 40;
+                animation: checkDraw 0.5s ease 0.35s forwards;
+            }
+            @keyframes checkDraw {
+                to { stroke-dashoffset: 0; }
+            }
+            .success-title {
+                color: #27ae60;
+                font-size: 22px;
+                font-weight: 800;
+                margin: 0 0 10px;
+                animation: successIn 0.4s ease 0.15s backwards;
+            }
+            .success-sub {
+                color: #6d7f9a;
+                font-size: 15px;
+                line-height: 1.6;
+                margin: 0 0 26px;
+                animation: successIn 0.4s ease 0.2s backwards;
+            }
+
+            .telegram-join {
+                display: none;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                width: 100%;
+                margin-top: 14px;
+                padding: 15px;
+                border: none;
+                border-radius: 12px;
+                background: linear-gradient(120deg, #27a7e7, #1e96d4);
+                color: #fff;
+                font-size: 16px;
+                font-weight: 700;
+                letter-spacing: 0.3px;
+                text-decoration: none;
+                box-shadow: 0 8px 20px rgba(39, 167, 231, 0.3);
+                transition: transform 0.15s ease, box-shadow 0.15s ease;
+                animation: statusIn 0.4s ease;
+            }
+            .telegram-join.show {
+                display: flex;
+            }
+            .telegram-join:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 26px rgba(39, 167, 231, 0.4);
+            }
+            .telegram-join:active {
+                transform: translateY(0);
+            }
+            .telegram-join svg {
+                width: 22px;
+                height: 22px;
+                flex-shrink: 0;
+            }
+
+            @keyframes fadeInStep {
+                from { opacity: 0; transform: translateX(12px); }
+                to { opacity: 1; transform: translateX(0); }
+            }
+            @keyframes fadeOutStep {
+                from { opacity: 1; transform: translateX(0); }
+                to { opacity: 0; transform: translateX(-12px); }
+            }
+        </style>
+    </head>
+    <body>
+        <div id="toast-container"></div>
+        {% if not product %}
+        <div class="panel">
+            <h2 style="color: #4a5a75; text-align: center">লিংক সঠিক নয়</h2>
+            <p style="text-align: center; color: #879ab6">
+                অনুগ্রহ করে মূল পেজ থেকে আবার চেষ্টা করুন।
+            </p>
+        </div>
+        {% else %}
+        <div class="panel">
+            <div class="top-row">
+                <button onclick="goBack()">&#8249;</button>
+                <a
+                    href="/"
+                    style="
+                        color: #94a9c7;
+                        text-decoration: none;
+                        font-size: 18px;
+                    "
+                    >&times;</a
+                >
+            </div>
+
+            <!-- Step 1: choose method -->
+            <div id="method-step">
+                <p class="method-title">পেমেন্ট পদ্ধতি নির্বাচন করুন</p>
+                <div class="info-row">
+                    <div class="info-card">
+                        <img
+                            src="/static/logo.png"
+                            alt="Logo"
+                            class="brand-avatar-img"
+                        />
+                        <span class="brand-name">{{ product.name }}</span>
+                    </div>
+                    <div class="info-card amount-card">
+                        {{ "%.0f"|format(product.price) }} BDT
+                    </div>
+                </div>
+                <div class="method-grid">
+                    <div class="method-card" onclick="selectMethod('bkash')">
+                        <img src="/static/bkash-logo.png" alt="bKash" />
+                        <div class="label">Bkash Personal</div>
+                    </div>
+                    <div class="method-card" onclick="selectMethod('nagad')">
+                        <img src="/static/nagad-logo.png" alt="Nagad" />
+                        <div class="label">Nagad Personal</div>
+                    </div>
+                </div>
+                <div
+                    id="method-error"
+                    class="status-box status-error hidden"
+                ></div>
+            </div>
+
+            <!-- Step 2: pay instructions -->
+            <div id="pay-step" class="hidden">
+                <div class="method-logo" id="pay-logo"></div>
+
+                <div class="info-row">
+                    <div class="info-card">
+                        <img
+                            src="/static/logo.png"
+                            alt="Logo"
+                            class="brand-avatar-img"
+                        />
+                        <span class="brand-name">{{ product.name }}</span>
+                    </div>
+                    <div class="info-card amount-card">
+                        {{ "%.0f"|format(product.price) }} BDT
+                    </div>
+                </div>
+
+                <ul class="pay-instructions">
+                    <li>
+                        আপনার <b id="pay-method-name"></b> মোবাইল অ্যাপে যান।
+                    </li>
+                    <li><b>Send Money</b>-এ ক্লিক করুন।</li>
+                    <li>
+                        প্রাপক নম্বর হিসেবে এই নম্বরটি লিখুনঃ
+                        <b id="pay-number"></b>
+                        <button
+                            class="copy-btn"
+                            onclick="copyText('pay-number', this)"
+                        >
+                            📋 কপি করুন
+                        </button>
+                    </li>
+                    <li>
+                        টাকার পরিমাণঃ <b id="pay-amount2"></b>
+                        <button
+                            class="copy-btn"
+                            onclick="copyText('pay-amount2', this)"
+                        >
+                            📋 কপি করুন
+                        </button>
+                    </li>
+                    <li>নিশ্চিত করতে এখন আপনার পিন লিখুন।</li>
+                    <li>
+                        এখন নিচের বক্সে আপনার <b>Transaction ID</b> দিন এবং
+                        নিচের Verify বাটনে ক্লিক করুন।
+                    </li>
+                </ul>
+
+                <label class="field-label" for="txn-input"
+                    >Transaction ID</label
+                >
+                <input
+                    type="text"
+                    id="txn-input"
+                    placeholder="ট্রানজেকশন আইডি লিখুন"
+                />
+                <button class="primary" id="verify-btn" onclick="verifyOrder()">VERIFY</button>
+                <div id="status-box" class="hidden"></div>
+            </div>
+
+            <!-- Step 3: success / join telegram -->
+            <div id="success-step" class="hidden">
+                <div class="success-icon">
+                    <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="26" cy="26" r="25" stroke="#27ae60" stroke-width="2"/>
+                        <path class="success-check" fill="none" stroke="#27ae60" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M14 27l7 7 17-17"/>
+                    </svg>
+                </div>
+                <h2 class="success-title">পেমেন্ট সফল হয়েছে!</h2>
+                <p class="success-sub">
+                    আপনার অর্ডার অ্যাপ্রুভড হয়েছে। এক্সক্লুসিভ কনটেন্ট ও
+                    আপডেট পেতে আমাদের Telegram চ্যানেলে জয়েন করুন।
+                </p>
+                <a
+                    href="https://t.me/+hQvnQArcM1pjNzU1"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    id="telegram-join"
+                    class="telegram-join show"
+                >
+                    <svg viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="120" cy="120" r="120" fill="#ffffff" fill-opacity="0.15"/>
+                        <path d="M180.5 72.5L159 178.6c-1.6 7.3-5.9 9.1-12 5.7l-33.2-24.5-16 15.4c-1.8 1.8-3.3 3.3-6.7 3.3l2.4-34.1 62-56c2.7-2.4-.6-3.8-4.2-1.4L79 141.7l-33.5-10.5c-7.3-2.3-7.4-7.3 1.5-10.8l131-50.5c6.1-2.2 11.4 1.5 9.5 10.6z" fill="#ffffff"/>
+                    </svg>
+                    <span>Join Premium </span>
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <script>
+            const productId = "{{ product_id }}";
+            let currentOrder = null;
+
+            function getCookie(name) {
+                const match = document.cookie.match(
+                    new RegExp("(^| )" + name + "=([^;]+)"),
+                );
+                return match ? match[2] : null;
+            }
+            const METHOD_LOGOS = {
+                bkash: '<img src="/static/bkash-logo.png" alt="bKash">',
+                nagad: '<img src="/static/nagad-logo.png" alt="Nagad">',
+            };
+            const METHOD_NAMES = { bkash: "bKash", nagad: "Nagad" };
+
+            function goBack() {
+                const payStep = document.getElementById("pay-step");
+                if (!payStep.classList.contains("hidden")) {
+                    payStep.classList.add("hidden");
+                    document
+                        .getElementById("method-step")
+                        .classList.remove("hidden");
+                    document.getElementById("method-step").style.animation =
+                        "fadeInStep 0.35s ease";
+                } else {
+                    window.location.href = "/";
+                }
+            }
+
+            function copyText(elId, btn) {
+                const text = document.getElementById(elId).innerText;
+                navigator.clipboard
+                    .writeText(text)
+                    .then(() => {
+                        if (btn) {
+                            const original = btn.innerHTML;
+                            btn.innerHTML = "✅ কপি হয়েছে";
+                            btn.classList.add("copied");
+                            setTimeout(() => {
+                                btn.innerHTML = original;
+                                btn.classList.remove("copied");
+                            }, 1500);
+                        }
+                    })
+                    .catch(() => {});
+            }
+
+            function showToast(message, type) {
+                const container = document.getElementById("toast-container");
+                const toast = document.createElement("div");
+                toast.className = "toast toast-" + (type || "info");
+                const icon =
+                    type === "success" ? "✅" : type === "error" ? "🛡️" : "ℹ️";
+                toast.innerHTML =
+                    '<span class="toast-icon">' +
+                    icon +
+                    "</span><span>" +
+                    message +
+                    "</span>";
+                container.appendChild(toast);
+                setTimeout(() => {
+                    toast.style.animation = "toast-out 0.3s ease-in forwards";
+                    setTimeout(() => toast.remove(), 300);
+                }, 6000);
+            }
+
+            function setVerifyLoading(isLoading) {
+                const btn = document.getElementById("verify-btn");
+                if (isLoading) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="btn-spinner"></span>VERIFYING...';
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = "VERIFY";
+                }
+            }
+
+            async function selectMethod(method) {
+                const errorBox = document.getElementById("method-error");
+                errorBox.classList.add("hidden");
+
+                let res, data;
+                try {
+                    res = await fetch("/api/orders/create", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            product_id: productId,
+                            payment_method: method,
+                            fbp: getCookie("_fbp"),
+                            fbc: getCookie("_fbc"),
+                            external_id: window.__fzExternalId || null,
+                        }),
+                    });
+                    data = await res.json();
+                } catch (err) {
+                    errorBox.classList.remove("hidden");
+                    errorBox.innerText =
+                        "নেটওয়ার্ক সমস্যা হয়েছে, আবার চেষ্টা করুন।";
+                    return;
+                }
+
+                if (data.status !== "ok") {
+                    errorBox.classList.remove("hidden");
+                    errorBox.innerText =
+                        data.message || "Could not create order";
+                    return;
+                }
+
+                currentOrder = data;
+
+                if (typeof fbq === "function") {
+                    var icEventId = 'ic_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+                    fbq('track', 'InitiateCheckout', {
+                        value: parseFloat(data.amount),
+                        currency: 'BDT',
+                        content_name: '{{ product.name if product else "" }}',
+                    }, { eventID: icEventId });
+
+                    // Server-side CAPI — same event_id for deduplication
+                    fetch('/api/capi/event', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            event_name: 'InitiateCheckout',
+                            event_id: icEventId,
+                            event_source_url: window.location.href,
+                            fbp: getCookie('_fbp'),
+                            fbc: getCookie('_fbc'),
+                            external_id: window.__fzExternalId || null,
+                            value: parseFloat(data.amount),
+                            currency: 'BDT',
+                            content_name: '{{ product.name if product else "" }}'
+                        })
+                    }).catch(function(){});
+                }
+
+                const methodStep = document.getElementById("method-step");
+                const payStep = document.getElementById("pay-step");
+
+                methodStep.style.animation = "fadeOutStep 0.2s ease forwards";
+                setTimeout(() => {
+                    methodStep.classList.add("hidden");
+                    methodStep.style.animation = "";
+
+                    document.getElementById("pay-logo").innerHTML =
+                        METHOD_LOGOS[method] || "";
+                    document.getElementById("pay-method-name").innerText =
+                        METHOD_NAMES[method] || method;
+                    document.getElementById("pay-number").innerText =
+                        data.payment_number;
+                    document.getElementById("pay-amount2").innerText =
+                        data.amount;
+
+                    payStep.classList.remove("hidden");
+                    payStep.style.animation = "fadeInStep 0.35s ease";
+                }, 180);
+            }
+
+            async function verifyOrder() {
+                const txnId = document.getElementById("txn-input").value.trim();
+                if (!txnId) {
+                    showToast("অনুগ্রহ করে Transaction ID লিখুন।", "error");
+                    return;
+                }
+                const statusBox = document.getElementById("status-box");
+                statusBox.classList.remove("hidden");
+                setVerifyLoading(true);
+
+                let data;
+                try {
+                    const res = await fetch("/api/orders/verify", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            order_id: currentOrder.order_id,
+                            txn_id: txnId,
+                        }),
+                    });
+                    data = await res.json();
+                } catch (err) {
+                    setVerifyLoading(false);
+                    showToast(
+                        "নেটওয়ার্ক সমস্যা হয়েছে, আবার চেষ্টা করুন।",
+                        "error",
+                    );
+                    return;
+                }
+
+                setVerifyLoading(false);
+                renderStatus(data.status);
+            }
+
+            function showSuccessScreen() {
+                const topRow = document.querySelector(".top-row");
+                const payStep = document.getElementById("pay-step");
+                const successStep = document.getElementById("success-step");
+
+                payStep.style.animation = "fadeOutStep 0.25s ease forwards";
+                if (topRow) topRow.style.animation = "fadeOutStep 0.25s ease forwards";
+
+                setTimeout(() => {
+                    payStep.classList.add("hidden");
+                    payStep.style.animation = "";
+                    if (topRow) {
+                        topRow.classList.add("hidden");
+                        topRow.style.animation = "";
+                    }
+
+                    successStep.classList.remove("hidden");
+                    successStep.style.animation = "none";
+                    void successStep.offsetWidth;
+                    successStep.style.animation = "";
+                }, 220);
+            }
+
+            function renderStatus(status) {
+                if (status === "approved") {
+                    if (typeof fbq === "function" && currentOrder) {
+                        fbq('track', 'Purchase', {
+                            value: parseFloat(currentOrder.amount),
+                            currency: 'BDT',
+                            content_name: currentOrder.product_name,
+                            order_id: currentOrder.order_id,
+                        }, {eventID: currentOrder.order_id});
+                    }
+                    showToast(
+                        "পেমেন্ট ভেরিফাইড হয়েছে! আপনার অর্ডার অ্যাপ্রুভড হয়েছে।",
+                        "success",
+                    );
+                    showSuccessScreen();
+                    return;
+                }
+
+                const statusBox = document.getElementById("status-box");
+                statusBox.classList.remove(
+                    "hidden",
+                    "status-approved",
+                    "status-verifying",
+                    "status-rejected",
+                );
+                // restart entry animation
+                statusBox.style.animation = "none";
+                void statusBox.offsetWidth;
+                statusBox.style.animation = "";
+
+                if (status === "rejected") {
+                    statusBox.classList.add("status-rejected");
+                    statusBox.innerText =
+                        "এই অর্ডার বাতিল হয়েছে। সাপোর্টে যোগাযোগ করুন।";
+                    showToast(
+                        "দুঃখিত, এই অর্ডারটি বাতিল হয়েছে। অনুগ্রহ করে আমাদের সাপোর্টে যোগাযোগ করুন।",
+                        "error",
+                    );
+                } else if (status === "not_found") {
+                    statusBox.classList.add("status-rejected");
+                    statusBox.innerText =
+                        "Transaction ID পাওয়া যায়নি। সঠিক আইডি দিয়ে আবার চেষ্টা করুন।";
+                    showToast(
+                        "দুঃখিত, আপনার ট্রানজেকশন আইডি খুঁজে পাওয়া যায়নি। অনুগ্রহ করে আপনার ট্রানজেকশন আইডি সহ আমাদের সাপোর্টে যোগাযোগ করুন।",
+                        "error",
+                    );
+                } else {
+                    statusBox.classList.add("status-rejected");
+                    statusBox.innerText =
+                        "Transaction ID মেলেনি। সঠিক আইডি চেক করে আবার চেষ্টা করুন।";
+                    showToast(
+                        "Transaction ID খুঁজে পাওয়া যায়নি। সঠিক আইডি দিয়ে আবার চেষ্টা করুন।",
+                        "error",
+                    );
+                }
+            }
+        </script>
+    </body>
+</html>
