@@ -4,9 +4,9 @@
         <script>
         !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
         (function(){
-            // Unique event IDs — shared between Pixel and CAPI for deduplication
-            window.__pvEventId = 'pv_co_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
-            window.__vcEventId = 'vc_'    + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+            // Unique event IDs — server-rendered for deduplication with CAPI
+            window.__pvEventId = '{{ pv_event_id }}' || ('pv_co_' + Date.now() + '_' + Math.random().toString(36).slice(2,8));
+            window.__vcEventId = 'vc_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
 
             try {
                 var extId = localStorage.getItem('fz_ext_id');
@@ -32,7 +32,7 @@
             }, { eventID: window.__vcEventId });
             {% endif %}
 
-            // Fire server-side CAPI for ViewContent after fbevents.js sets _fbp cookie
+            // Fire server-side CAPI after fbevents.js sets _fbp cookie
             setTimeout(function() {
                 try {
                     function _gc(n) { var m = document.cookie.match(new RegExp('(^| )' + n + '=([^;]+)')); return m ? m[2] : null; }
@@ -41,7 +41,18 @@
                         external_id: window.__fzExternalId || null,
                         event_source_url: window.location.href
                     };
+
+                    // CAPI PageView — same event_id as browser pixel for deduplication
+                    fetch('/api/capi/event', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(Object.assign({}, _base, {
+                            event_name: 'PageView',
+                            event_id: window.__pvEventId
+                        }))
+                    }).catch(function(){});
+
                     {% if product %}
+                    // CAPI ViewContent — same event_id as browser pixel for deduplication
                     fetch('/api/capi/event', {
                         method: 'POST', headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(Object.assign({}, _base, {
