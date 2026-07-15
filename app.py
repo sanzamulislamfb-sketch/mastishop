@@ -242,6 +242,11 @@ def capi_event():
             str(data["external_id"]).strip().encode("utf-8")
         ).hexdigest()
         user_data["external_id"] = [hashed_ext]
+    if data.get("ph"):
+        phone_digits = re.sub(r"\D", "", str(data["ph"]))
+        if phone_digits.startswith("0"):
+            phone_digits = "88" + phone_digits
+        user_data["ph"] = [hashlib.sha256(phone_digits.encode("utf-8")).hexdigest()]
 
     event_entry = {
         "event_name": event_name,
@@ -497,12 +502,14 @@ def order_page():
     product_id = request.args.get("product", "").strip()
     product = PRODUCTS.get(product_id)
     pixel = get_pixel_config()
+    pv_event_id = "pv_co_" + uuid.uuid4().hex[:12]
 
     return render_template(
         "checkout.html",
         product_id=product_id,
         product=product,
         pixel_id=pixel["pixel_id"],
+        pv_event_id=pv_event_id,
     )
 
 
