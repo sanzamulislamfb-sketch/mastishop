@@ -240,7 +240,7 @@
             <span class="text-[10px] text-rose-350 font-bold uppercase tracking-wider flex items-center gap-1.5"><span
                 class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span><span>সীমিত সময়ের অফার</span></span>
             <p class="text-xs sm:text-sm font-extrabold text-zinc-200">এই অফারটি আর মাত্র <span
-                class="text-rose-400 font-mono text-base font-black px-1">২৯ মিনিট ৫০ সেকেন্ড</span> এর মধ্যে শেষ হবে!
+                class="text-rose-400 font-mono text-base font-black px-1" id="countdown-timer">৩০ মিনিট ০০ সেকেন্ড</span> এর মধ্যে শেষ হবে!
             </p>
           </div>
         </section>
@@ -500,6 +500,35 @@
         style="position: absolute; border: 0px; height: 1px; margin: -1px; padding: 0px; width: 1px; clip: rect(0px, 0px, 0px, 0px); overflow: hidden; white-space: nowrap; overflow-wrap: normal;">
       </div>
     </template></next-route-announcer>
+<script>
+(function() {
+    var DURATION = 30 * 60;
+    var key = 'countdown_end';
+    var end = sessionStorage.getItem(key);
+    if (!end || Date.now() > parseInt(end)) {
+        end = Date.now() + DURATION * 1000;
+        sessionStorage.setItem(key, end);
+    }
+    function toBengali(n) {
+        var digits = ['০','১','২','৩','৪','৫','৬','৭','৮','৯'];
+        return String(n).replace(/\d/g, function(d){ return digits[d]; });
+    }
+    function update() {
+        var remaining = Math.max(0, Math.floor((parseInt(end) - Date.now()) / 1000));
+        if (remaining === 0) {
+            end = Date.now() + DURATION * 1000;
+            sessionStorage.setItem(key, end);
+            remaining = DURATION;
+        }
+        var m = Math.floor(remaining / 60);
+        var s = remaining % 60;
+        var el = document.getElementById('countdown-timer');
+        if (el) el.textContent = toBengali(m) + ' মিনিট ' + toBengali(String(s).padStart(2,'0')) + ' সেকেন্ড';
+    }
+    update();
+    setInterval(update, 1000);
+})();
+</script>
 </body>
 
 </html>
