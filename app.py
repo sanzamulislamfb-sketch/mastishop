@@ -1,749 +1,800 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>JSI Admin — Order Ledger</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-    :root {
-        --bg: #14110F;
-        --paper: #1C1815;
-        --paper-raised: #211C18;
-        --rule: #372C1F;
-        --rule-soft: #2A2219;
-        --ink: #EDE6D9;
-        --ink-dim: #9A8F7C;
-        --ink-faint: #6F6555;
-        --gold: #C89B3C;
-        --gold-dim: #8A6E33;
-        --stamp-pending: #C89B3C;
-        --stamp-approved: #5E8C5F;
-        --stamp-rejected: #B24A40;
-        --fb-blue: #1877F2;
-    }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-        font-family: 'Inter', 'Hind Siliguri', Arial, sans-serif;
-        background: var(--bg);
-        margin: 0;
-        padding: 0;
-        color: var(--ink);
-        min-height: 100vh;
-    }
-    body::before {
-        content: "";
-        position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.05;
-        background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, #000 2px, #000 3px);
-        mix-blend-mode: overlay;
-    }
-    body::after {
-        content: "";
-        position: fixed; inset: 0; pointer-events: none; z-index: 0;
-        background: radial-gradient(ellipse 900px 500px at 50% -10%, rgba(200,155,60,0.06), transparent 65%);
-    }
-    .page { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 40px 28px 100px; }
+"""
+Nagad/bKash SMS Forwarder - Cloud Receiver Server + Order Verification System
+Now using Firebase Firestore for storage (persists across restarts/redeploys).
 
-    /* ---- Masthead ---- */
-    .masthead {
-        display: flex; justify-content: space-between; align-items: flex-end;
-        border-bottom: 3px double var(--rule); padding-bottom: 18px; margin-bottom: 8px;
-    }
-    .masthead .title-block { display: flex; align-items: baseline; gap: 14px; }
-    .masthead h1 {
-        margin: 0; font-family: 'Fraunces', serif; font-weight: 600; font-size: 30px;
-        letter-spacing: 0.01em; color: var(--ink);
-    }
-    .masthead .kicker {
-        font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.16em;
-        text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold-dim);
-        padding: 3px 9px; border-radius: 2px;
-    }
-    .masthead .actions { display: flex; align-items: center; gap: 8px; }
-    .icon-btn {
-        width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-        border: 1px solid var(--rule); background: var(--paper); color: var(--ink-dim);
-        border-radius: 6px; cursor: pointer; transition: all 0.15s;
-    }
-    .icon-btn:hover { color: var(--gold); border-color: var(--gold-dim); }
-    .icon-btn svg { width: 17px; height: 17px; }
-    a.logout {
-        color: var(--ink-dim); text-decoration: none; font-size: 12.5px; font-family: 'IBM Plex Mono', monospace;
-        padding: 8px 14px; border: 1px solid var(--rule); border-radius: 6px; transition: all 0.15s; white-space: nowrap;
-    }
-    a.logout:hover { color: var(--stamp-rejected); border-color: var(--stamp-rejected); }
-    .dateline {
-        font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--ink-faint);
-        letter-spacing: 0.04em; margin: 10px 0 28px; text-transform: uppercase;
-    }
+Local run:
+    pip install -r requirements.txt
+    Place your Firebase service account key as firebase-key.json in this folder
+    python app.py
 
-    /* ---- Overview stat cards ---- */
-    .overview {
-        display: grid; grid-template-columns: repeat(4, 1fr) 1.3fr; gap: 14px; margin-bottom: 30px;
-    }
-    .ov-card {
-        border: 1px solid var(--rule); border-radius: 8px; background: var(--paper);
-        padding: 16px 18px; position: relative; min-height: 92px;
-    }
-    .ov-card .ov-label {
-        font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.1em;
-        text-transform: uppercase; color: var(--ink-faint); display: flex; align-items: center;
-        justify-content: space-between; gap: 8px; margin-bottom: 12px;
-    }
-    .ov-card .ov-figure { font-family: 'Fraunces', serif; font-weight: 600; font-size: 27px; color: var(--ink); }
-    .ov-card.pending .ov-figure { color: var(--stamp-pending); }
-    .ov-card.approved .ov-figure { color: var(--stamp-approved); }
-    .ov-card.rejected .ov-figure { color: var(--stamp-rejected); }
-    .mini-clear {
-        font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; text-transform: uppercase;
-        letter-spacing: 0.05em; color: var(--ink-faint); background: var(--paper-raised);
-        border: 1px solid var(--rule); border-radius: 20px; padding: 3px 9px; cursor: pointer;
-        transition: all 0.15s; white-space: nowrap;
-    }
-    .mini-clear:hover { color: var(--stamp-rejected); border-color: var(--stamp-rejected); }
+Then set the phone app's API URL to:
+    https://<YOUR-RENDER-URL>/api/sms-webhook
 
-    .ov-card.earning {
-        background: linear-gradient(160deg, rgba(200,155,60,0.10), var(--paper));
-        border-color: var(--gold-dim); display: flex; flex-direction: column; gap: 10px;
-    }
-    .ov-card.earning .ov-label { color: var(--gold); margin-bottom: 4px; }
-    .earning-row { display: flex; justify-content: space-between; align-items: baseline; }
-    .earning-row .e-label {
-        font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; text-transform: uppercase;
-        letter-spacing: 0.06em; color: var(--ink-faint);
-    }
-    .earning-row .e-value { font-family: 'Fraunces', serif; font-weight: 600; font-size: 17px; color: var(--ink); }
-    .earning-row.total .e-value { color: var(--gold); font-size: 19px; }
-    .earning-divider { border: none; border-top: 1px dashed var(--rule); margin: 0; }
+ENV VARS to set on Render:
+    API_TOKEN                - existing SMS webhook token (unchanged)
+    ADMIN_PASSWORD            - password to log into /admin
+    SECRET_KEY                - any random string, used to sign the admin session cookie
+    BKASH_NUMBER              - your bKash personal number that customers send money to
+    NAGAD_NUMBER              - your Nagad personal number that customers send money to
+    FIREBASE_CREDENTIALS_JSON - the FULL content of your Firebase service account
+                                JSON file, pasted as one value (see setup notes)
 
-    @media (max-width: 980px) { .overview { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 560px) { .overview { grid-template-columns: 1fr; } }
+WHY FIRESTORE:
+    Render's free/starter web services use an ephemeral filesystem - any
+    local file (like a SQLite .db file) is wiped whenever the service
+    restarts, redeploys, or spins back up after idling. That's why orders
+    and messages were disappearing. Firestore is a separate managed cloud
+    database, so the data now survives all of that.
+"""
 
-    /* ---- Chart panel ---- */
-    .chart-panel {
-        border: 1px solid var(--rule); border-radius: 8px; background: var(--paper);
-        padding: 22px 24px 12px; margin-bottom: 34px; position: relative;
-    }
-    .chart-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; flex-wrap: wrap; gap: 12px; }
-    .chart-head h3 {
-        margin: 0; font-family: 'Fraunces', serif; font-weight: 600; font-size: 16px; color: var(--ink);
-        display: flex; align-items: center; gap: 8px;
-    }
-    .chart-head .sub { font-size: 12px; color: var(--ink-dim); margin: 4px 0 0; }
-    .ratio-card {
-        border: 1px solid var(--rule); border-radius: 8px; background: var(--paper-raised);
-        padding: 10px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 150px;
-    }
-    .ratio-card .rc-label {
-        font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; text-transform: uppercase;
-        letter-spacing: 0.1em; color: var(--ink-faint);
-    }
-    .ratio-card .rc-values { display: flex; gap: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; }
-    .rc-values .r-bkash { color: var(--stamp-rejected); }
-    .rc-values .r-nagad { color: var(--stamp-pending); }
-    .rc-values .r-other { color: var(--ink-dim); }
-    .chart-canvas-wrap { position: relative; width: 100%; height: 220px; margin-top: 10px; }
-    #txnChart { width: 100%; height: 100%; display: block; }
-    .chart-legend { display: flex; gap: 20px; padding: 10px 2px 4px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-dim); flex-wrap: wrap; }
-    .chart-legend span { display: flex; align-items: center; gap: 6px; }
-    .chart-legend .sw { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+import os
+import re
+import json
+import uuid
+import hashlib
+import requests
+from functools import wraps
+from datetime import datetime
 
-    /* ---- Folder tabs ---- */
-    .tabs { display: flex; gap: 4px; margin: 0 0 -1px; padding-left: 4px; }
-    .tab-btn {
-        background: var(--rule-soft); border: 1px solid var(--rule); border-bottom: none;
-        color: var(--ink-faint); font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500;
-        padding: 10px 18px 12px; border-radius: 5px 5px 0 0; cursor: pointer; letter-spacing: 0.03em;
-        transition: all 0.15s; text-transform: uppercase;
-    }
-    .tab-btn .tcount { margin-left: 7px; color: var(--ink-faint); opacity: 0.8; }
-    .tab-btn:hover { color: var(--ink); }
-    .tab-btn.active { background: var(--paper); color: var(--gold); border-color: var(--rule); position: relative; top: 1px; }
-    .tab-btn.active .tcount { color: var(--gold); }
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for
 
-    /* ---- Ledger table ---- */
-    .section { margin-bottom: 36px; }
-    .section-label {
-        font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
-        color: var(--ink-faint); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--rule-soft);
-        display: flex; align-items: center; gap: 8px;
-    }
-    .section-label .num { color: var(--gold); }
-    .ledger { border: 1px solid var(--rule); border-radius: 0 6px 6px 6px; overflow: hidden; background: var(--paper); margin-bottom: 8px; }
-    table { width: 100%; border-collapse: collapse; counter-reset: rowline; }
-    tr[data-status] { counter-increment: rowline; }
-    th, td { padding: 13px 16px; text-align: left; border-bottom: 1px solid var(--rule-soft); font-size: 13px; }
-    tr:last-child td { border-bottom: none; }
-    tr[data-status]:hover td { background: rgba(200,155,60,0.04); }
-    th {
-        color: var(--ink-faint); font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em;
-        font-family: 'IBM Plex Mono', monospace; background: var(--rule-soft); border-bottom: 1px solid var(--rule);
-    }
-    td.rowno { font-family: 'IBM Plex Mono', monospace; color: var(--ink-faint); font-size: 11.5px; width: 40px; }
-    td.rowno::before { content: counter(rowline, decimal-leading-zero); }
-    td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--ink-dim); }
-    td.amount { font-family: 'IBM Plex Mono', monospace; font-weight: 600; color: var(--ink); text-align: right; font-size: 13.5px; }
-    th:nth-child(4) { text-align: right; }
+import firebase_admin
+from firebase_admin import credentials, firestore
 
-    .stamp {
-        display: inline-block; font-family: 'Fraunces', serif; font-weight: 600; font-size: 10.5px;
-        text-transform: uppercase; letter-spacing: 0.13em; padding: 4px 12px 5px;
-        border: 2px solid currentColor; border-radius: 3px 9px 3px 9px / 8px 3px 8px 3px; position: relative;
-    }
-    .stamp.pending, .stamp.verifying { color: var(--stamp-pending); background: rgba(200,155,60,0.07); transform: rotate(-3deg); }
-    .stamp.approved { color: var(--stamp-approved); background: rgba(94,140,95,0.07); transform: rotate(-1.5deg); }
-    .stamp.rejected { color: var(--stamp-rejected); background: rgba(178,74,64,0.07); transform: rotate(2deg); }
+app = Flask(__name__)
 
-    form.inline { display: inline; }
-    button.act {
-        border: 1px solid var(--rule); background: var(--paper-raised); color: var(--ink-dim); padding: 7px 14px;
-        border-radius: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500;
-        cursor: pointer; margin-right: 6px; letter-spacing: 0.04em; text-transform: uppercase; transition: all 0.15s;
-    }
-    button.approve:hover { background: var(--stamp-approved); color: #12160f; border-color: var(--stamp-approved); }
-    button.reject:hover { background: var(--stamp-rejected); color: #16100e; border-color: var(--stamp-rejected); }
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
 
-    .empty {
-        color: var(--ink-faint); padding: 44px 20px; text-align: center; background: var(--paper);
-        border-radius: 0 6px 6px 6px; border: 1px dashed var(--rule); font-family: 'IBM Plex Mono', monospace; font-size: 13px;
-    }
-    tr.row-hidden { display: none; }
+API_TOKEN = os.environ.get("API_TOKEN", "")
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme")
 
-    /* ---- Floating support button ---- */
-    .support-fab {
-        position: fixed; right: 26px; bottom: 26px; z-index: 40;
-        display: flex; align-items: center; gap: 8px;
-        background: var(--fb-blue); color: #fff; border: none; border-radius: 999px;
-        padding: 12px 20px 12px 14px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
-        cursor: pointer; box-shadow: 0 6px 20px rgba(24,119,242,0.35); transition: transform 0.15s;
-    }
-    .support-fab:hover { transform: translateY(-2px); }
-    .support-fab svg { width: 16px; height: 16px; }
-
-    /* ---- Modal shared ---- */
-    .modal-overlay {
-        position: fixed; inset: 0; background: rgba(10,8,6,0.7); display: none;
-        align-items: center; justify-content: center; z-index: 50; padding: 20px;
-    }
-    .modal-overlay.open { display: flex; }
-    .modal-box {
-        background: var(--paper); border: 1px solid var(--rule); border-radius: 8px;
-        padding: 26px 28px; max-width: 420px; width: 100%; max-height: 88vh; overflow-y: auto;
-    }
-    .modal-box.danger { border-color: var(--stamp-rejected); }
-    .modal-box h3 { margin: 0 0 8px; font-family: 'Fraunces', serif; font-size: 17px; font-weight: 600; color: var(--ink); }
-    .modal-box.danger h3 { color: var(--stamp-rejected); }
-    .modal-box p { margin: 0 0 18px; font-size: 13px; color: var(--ink-dim); line-height: 1.6; }
-    .modal-box input.confirm-input {
-        width: 100%; background: var(--paper-raised); border: 1px solid var(--rule); border-radius: 4px;
-        padding: 10px 13px; color: var(--ink); font-family: 'IBM Plex Mono', monospace; font-size: 13px;
-        margin-bottom: 18px; outline: none;
-    }
-    .modal-box input.confirm-input:focus { border-color: var(--stamp-rejected); }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
-    .modal-actions button {
-        border: none; padding: 9px 18px; border-radius: 4px; font-size: 12.5px; font-weight: 600;
-        cursor: pointer; font-family: 'IBM Plex Mono', monospace;
-    }
-    .modal-actions .cancel-btn { background: var(--rule-soft); color: var(--ink-dim); }
-    .modal-actions .confirm-btn { background: var(--stamp-rejected); color: #16100e; }
-    .modal-actions .confirm-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-    .close-x {
-        position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--ink-faint);
-        cursor: pointer; font-size: 18px; line-height: 1; padding: 4px;
-    }
-    .close-x:hover { color: var(--ink); }
-
-    /* ---- Settings modal specifics ---- */
-    #settingsModal .modal-box { max-width: 500px; position: relative; }
-    .settings-section { margin-bottom: 24px; }
-    .settings-section:last-child { margin-bottom: 0; }
-    .settings-section-title {
-        font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
-        color: var(--gold); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
-    }
-    .pixel-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
-    .pixel-icon {
-        width: 30px; height: 30px; border-radius: 4px; background: var(--fb-blue); display: flex;
-        align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 11.5px;
-        font-family: 'IBM Plex Mono', monospace; flex-shrink: 0;
-    }
-    .pixel-title { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 600; color: var(--ink); }
-    .pixel-desc { color: var(--ink-dim); font-size: 12px; margin: 4px 0 16px; line-height: 1.6; }
-    .pixel-desc code { font-family: 'IBM Plex Mono', monospace; background: var(--rule-soft); padding: 1px 5px; border-radius: 3px; color: var(--gold); }
-    .pixel-form { display: flex; flex-direction: column; gap: 14px; }
-    .pixel-field { display: flex; flex-direction: column; gap: 7px; }
-    .pixel-field label {
-        font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.1em;
-        font-family: 'IBM Plex Mono', monospace; font-weight: 600;
-    }
-    .pixel-field input {
-        background: var(--paper-raised); border: 1px solid var(--rule); border-radius: 4px; padding: 10px 13px;
-        color: var(--ink); font-size: 13px; font-family: 'IBM Plex Mono', monospace; outline: none; transition: border-color 0.15s;
-    }
-    .pixel-field input:focus { border-color: var(--gold-dim); }
-    .pixel-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-    button.pixel-connect {
-        border: 1px solid var(--fb-blue); padding: 10px 18px; border-radius: 4px; font-size: 12.5px; font-weight: 600;
-        cursor: pointer; background: var(--fb-blue); color: #fff; font-family: 'Inter', sans-serif; transition: filter 0.15s;
-    }
-    button.pixel-connect:hover { filter: brightness(1.08); }
-    .pixel-status { font-size: 12px; font-family: 'IBM Plex Mono', monospace; color: var(--ink-faint); }
-    .pixel-status.on { color: var(--stamp-approved); }
-    .pixel-status .dot2 { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-faint); margin-right: 7px; }
-    .pixel-status.on .dot2 { background: var(--stamp-approved); }
-
-    .danger-zone {
-        border: 1px solid var(--stamp-rejected); border-radius: 6px; background: rgba(178,74,64,0.06);
-        padding: 16px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;
-    }
-    .dz-text p { margin: 0; font-size: 12px; color: var(--ink-dim); line-height: 1.5; max-width: 280px; }
-    button.reset-all {
-        border: 1px solid var(--stamp-rejected); background: transparent; color: var(--stamp-rejected); padding: 9px 16px;
-        border-radius: 4px; font-size: 11.5px; font-weight: 600; font-family: 'IBM Plex Mono', monospace;
-        text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; white-space: nowrap; transition: all 0.15s;
-    }
-    button.reset-all:hover { background: var(--stamp-rejected); color: #16100e; }
-
-    footer {
-        border-top: 3px double var(--rule); margin-top: 12px; padding-top: 18px;
-        display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
-    }
-    footer .brand-line { display: flex; align-items: center; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: var(--ink-faint); }
-    footer .brand-line b { color: var(--gold); letter-spacing: 0.05em; }
-    footer .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--stamp-approved); }
-    footer .meta { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--ink-faint); letter-spacing: 0.02em; }
-
-    @media (max-width: 640px) {
-        .masthead { flex-direction: column; align-items: flex-start; gap: 12px; }
-        th:nth-child(5), td:nth-child(5) { display: none; }
-    }
-    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-</style>
-</head>
-<body>
-    <div class="page">
-        <div class="masthead">
-            <div class="title-block">
-                <h1>Order Ledger</h1>
-                <span class="kicker">JSI · Admin</span>
-            </div>
-            <div class="actions">
-                <button class="icon-btn" id="refreshBtn" type="button" title="Refresh">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                </button>
-                <button class="icon-btn" id="openSettingsModal" type="button" title="Settings">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                </button>
-                <a class="logout" href="/admin/logout">Sign out</a>
-            </div>
-        </div>
-        <div class="dateline">Automated payment, order &amp; delivery monitoring — updates every 15s</div>
-
-        <!-- ---- Overview stat cards ---- -->
-        <div class="overview">
-            <div class="ov-card">
-                <div class="ov-label">Total Requests</div>
-                <div class="ov-figure">{{ pending_count + approved_count + rejected_count }}</div>
-            </div>
-            <div class="ov-card pending">
-                <div class="ov-label">Pending Payment <span class="mini-clear" id="clearPendingBtn">Clear</span></div>
-                <div class="ov-figure">{{ pending_count }}</div>
-            </div>
-            <div class="ov-card approved">
-                <div class="ov-label">Approved Bookings</div>
-                <div class="ov-figure">{{ approved_count }}</div>
-            </div>
-            <div class="ov-card rejected">
-                <div class="ov-label">Rejected List</div>
-                <div class="ov-figure">{{ rejected_count }}</div>
-            </div>
-            <div class="ov-card earning">
-                <div class="ov-label">৳ Total Earning Collected</div>
-                <div class="earning-row">
-                    <span class="e-label">Today's sale</span>
-                    <span class="e-value">৳{{ today_earning | default(0) }}</span>
-                </div>
-                <hr class="earning-divider">
-                <div class="earning-row total">
-                    <span class="e-label">Lifetime earning</span>
-                    <span class="e-value">৳{{ lifetime_earning | default(0) }}</span>
-                </div>
-            </div>
-        </div>
-
-        
-
-        <div class="section">
-            <div class="tabs" id="orderTabs">
-                <button class="tab-btn active" data-filter="all">All <span class="tcount">{{ pending_count + approved_count + rejected_count }}</span></button>
-                <button class="tab-btn" data-filter="pending">Pending <span class="tcount">{{ pending_count }}</span></button>
-                <button class="tab-btn" data-filter="approved">Approved <span class="tcount">{{ approved_count }}</span></button>
-                <button class="tab-btn" data-filter="rejected">Rejected <span class="tcount">{{ rejected_count }}</span></button>
-            </div>
-
-            {% if pending or approved or rejected %}
-            <div class="ledger">
-            <table>
-                <tr>
-                    <th></th><th>Order</th><th>Product</th><th>Amount</th><th>Method</th>
-                    <th>Reference</th><th>Status</th><th>Date</th><th>Action</th>
-                </tr>
-                {% for o in pending %}
-                <tr data-status="pending">
-                    <td class="rowno"></td>
-                    <td class="mono">{{ o['order_id'] }}</td>
-                    <td>{{ o['product_name'] }}</td>
-                    <td class="amount">{{ o['amount'] }}</td>
-                    <td>{{ o['payment_method'] }}</td>
-                    <td class="mono">{{ o['submitted_txn_id'] or '-' }}</td>
-                    <td><span class="stamp {{ o['status'] }}">{{ o['status'] }}</span></td>
-                    <td class="mono">{{ o['created_at'] }}</td>
-                    <td>
-                        <form class="inline" method="POST" action="/admin/orders/{{ o['order_id'] }}/approve">
-                            <button class="act approve" type="submit">Approve</button>
-                        </form>
-                        <form class="inline" method="POST" action="/admin/orders/{{ o['order_id'] }}/reject">
-                            <button class="act reject" type="submit">Reject</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-                {% for o in approved %}
-                <tr data-status="approved">
-                    <td class="rowno"></td>
-                    <td class="mono">{{ o['order_id'] }}</td>
-                    <td>{{ o['product_name'] }}</td>
-                    <td class="amount">{{ o['amount'] }}</td>
-                    <td>{{ o['payment_method'] }}</td>
-                    <td class="mono">{{ o['submitted_txn_id'] or '-' }}</td>
-                    <td><span class="stamp approved">approved</span></td>
-                    <td class="mono">{{ o['approved_at'] }}</td>
-                    <td>&mdash;</td>
-                </tr>
-                {% endfor %}
-                {% for o in rejected %}
-                <tr data-status="rejected">
-                    <td class="rowno"></td>
-                    <td class="mono">{{ o['order_id'] }}</td>
-                    <td>{{ o['product_name'] }}</td>
-                    <td class="amount">{{ o['amount'] }}</td>
-                    <td>{{ o['payment_method'] }}</td>
-                    <td class="mono">{{ o['submitted_txn_id'] or '-' }}</td>
-                    <td><span class="stamp rejected">rejected</span></td>
-                    <td>&mdash;</td>
-                    <td>&mdash;</td>
-                </tr>
-                {% endfor %}
-            </table>
-            </div>
-            {% else %}
-            <div class="empty">The ledger is empty — no orders recorded yet.</div>
-            {% endif %}
-        </div>
-
-        <footer>
-            <div class="brand-line"><span class="pulse"></span><b>JSI</b>&nbsp;— Admin Console</div>
-            <div class="meta">Auto-refreshing every 15s • Session secured</div>
-        </footer>
-    </div>
-
-    <!-- ---- Floating support button ---- -->
-    <button class="support-fab" id="supportFab" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19c-4.3 0-8-1.79-8-4V9c0-2.21 3.7-4 8-4s8 1.79 8 4v6c0 2.21-3.7 4-8 4z"></path><path d="M8 12h.01M12 12h.01M16 12h.01"></path></svg>
-        Support
-    </button>
-
-    <!-- ---- Settings modal (Pixel setup + Danger zone) ---- -->
-    <div class="modal-overlay" id="settingsModal">
-        <div class="modal-box">
-            <button class="close-x" id="closeSettings" type="button">&times;</button>
-            <h3>Settings</h3>
-            <p>Connection and maintenance options for this ledger.</p>
-
-            <div class="settings-section">
-                <div class="settings-section-title">§ Payment Numbers</div>
-                <div class="pixel-desc">
-                </div>
-                <form class="pixel-form" method="POST" action="/admin/settings/numbers">
-                    <div class="pixel-field">
-                        <label>bKash Personal Number</label>
-                        <input type="text" name="bkash_number" placeholder="01XXXXXXXXX" value="{{ bkash_number or '' }}">
-                    </div>
-                    <div class="pixel-field">
-                        <label>Nagad Personal Number</label>
-                        <input type="text" name="nagad_number" placeholder="01XXXXXXXXX" value="{{ nagad_number or '' }}">
-                    </div>
-                    <div class="pixel-actions">
-                        <button class="pixel-connect" type="submit">Save numbers</button>
-                    </div>
-                </form>
-            </div>
-
-            <div class="settings-section">
-                <div class="settings-section-title">§ Facebook Pixel — Conversions API</div>
-                <div class="pixel-head">
-                    <div class="pixel-icon">FB</div>
-                    <div class="pixel-title">Purchase event delivery</div>
-                </div>
-                <div class="pixel-desc">
-                    Enter a Pixel ID and a System User Access Token &mdash; a server-side
-                    <code>Purchase</code> event will be sent to the Meta Conversions API for
-                    every order approved here, so it's counted as a conversion on the pixel.
-                </div>
-                <form class="pixel-form" method="POST" action="/admin/pixel/save">
-                    <div class="pixel-field">
-                        <label>Pixel ID</label>
-                        <input type="text" name="pixel_id" placeholder="e.g. 123456789012345" value="{{ pixel_id or '' }}">
-                    </div>
-                    <div class="pixel-field">
-                        <label>Access Token</label>
-                        <input type="password" name="pixel_token" placeholder="Meta system-user access token" value="{{ pixel_token or '' }}">
-                    </div>
-                    <div class="pixel-actions">
-                        <button class="pixel-connect" type="submit">Save &amp; connect</button>
-                        <span class="pixel-status {{ 'on' if pixel_connected else '' }}">
-                            <span class="dot2"></span>{{ 'Connected' if pixel_connected else 'Not connected' }}
-                        </span>
-                    </div>
-                </form>
-            </div>
-
-            <div class="settings-section">
-                <div class="settings-section-title">§ Danger zone</div>
-                <div class="danger-zone">
-                    <div class="dz-text">
-                        <p>Permanently delete every pending, approved and rejected entry. This cannot be undone.</p>
-                    </div>
-                    <button class="reset-all" id="openResetModal" type="button">Reset all history</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ---- Reset confirm modal ---- -->
-    <div class="modal-overlay" id="resetModal">
-        <div class="modal-box danger">
-            <h3>Are you absolutely sure?</h3>
-            <p>All order history (pending, approved, rejected) will be permanently deleted. Type <b>RESET</b> below to confirm.</p>
-            <form method="POST" action="/admin/history/reset" id="resetForm">
-                <input class="confirm-input" type="text" id="resetConfirmInput" placeholder="Type RESET" autocomplete="off">
-                <div class="modal-actions">
-                    <button class="cancel-btn" type="button" id="cancelReset">Cancel</button>
-                    <button class="confirm-btn" type="submit" id="confirmResetBtn" disabled>Yes, reset everything</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- ---- Clear pending confirm modal ---- -->
-    <div class="modal-overlay" id="clearPendingModal">
-        <div class="modal-box danger">
-            <h3>Clear all pending requests?</h3>
-            <p>Every order currently marked pending will be permanently deleted. Approved and rejected records will not be touched. Type <b>CLEAR</b> below to confirm.</p>
-            <form method="POST" action="/admin/pending/clear" id="clearPendingForm">
-                <input class="confirm-input" type="text" id="clearPendingConfirmInput" placeholder="Type CLEAR" autocomplete="off">
-                <div class="modal-actions">
-                    <button class="cancel-btn" type="button" id="cancelClearPending">Cancel</button>
-                    <button class="confirm-btn" type="submit" id="confirmClearPendingBtn" disabled>Yes, clear pending</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-<script>
-// ---- Auto-refresh order data every 15s without a full page reload ----
-function escapeHtml(str) {
-    if (str === null || str === undefined) return "-";
-    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+PAYMENT_NUMBERS = {
+    "bkash": os.environ.get("BKASH_NUMBER", "01700000000"),
+    "nagad": os.environ.get("NAGAD_NUMBER", "01800000000"),
 }
 
-function buildPendingRow(o) {
-    return `<tr data-status="pending">
-        <td class="rowno"></td>
-        <td class="mono">${escapeHtml(o.order_id)}</td>
-        <td>${escapeHtml(o.product_name)}</td>
-        <td class="amount">${escapeHtml(o.amount)}</td>
-        <td>${escapeHtml(o.payment_method)}</td>
-        <td class="mono">${escapeHtml(o.submitted_txn_id)}</td>
-        <td><span class="stamp ${escapeHtml(o.status)}">${escapeHtml(o.status)}</span></td>
-        <td class="mono">${escapeHtml(o.created_at)}</td>
-        <td>
-            <form class="inline" method="POST" action="/admin/orders/${encodeURIComponent(o.order_id)}/approve">
-                <button class="act approve" type="submit">Approve</button>
-            </form>
-            <form class="inline" method="POST" action="/admin/orders/${encodeURIComponent(o.order_id)}/reject">
-                <button class="act reject" type="submit">Reject</button>
-            </form>
-        </td>
-    </tr>`;
-}
-function buildApprovedRow(o) {
-    return `<tr data-status="approved">
-        <td class="rowno"></td>
-        <td class="mono">${escapeHtml(o.order_id)}</td>
-        <td>${escapeHtml(o.product_name)}</td>
-        <td class="amount">${escapeHtml(o.amount)}</td>
-        <td>${escapeHtml(o.payment_method)}</td>
-        <td class="mono">${escapeHtml(o.submitted_txn_id)}</td>
-        <td><span class="stamp approved">approved</span></td>
-        <td class="mono">${escapeHtml(o.approved_at)}</td>
-        <td>&mdash;</td>
-    </tr>`;
-}
-function buildRejectedRow(o) {
-    return `<tr data-status="rejected">
-        <td class="rowno"></td>
-        <td class="mono">${escapeHtml(o.order_id)}</td>
-        <td>${escapeHtml(o.product_name)}</td>
-        <td class="amount">${escapeHtml(o.amount)}</td>
-        <td>${escapeHtml(o.payment_method)}</td>
-        <td class="mono">${escapeHtml(o.submitted_txn_id)}</td>
-        <td><span class="stamp rejected">rejected</span></td>
-        <td>&mdash;</td>
-        <td>&mdash;</td>
-    </tr>`;
-}
-function getActiveFilter() {
-    const activeBtn = document.querySelector('#orderTabs .tab-btn.active');
-    return activeBtn ? activeBtn.dataset.filter : 'all';
+PRODUCTS = {
+    "basic": {"name": "Masti Ghor", "price": 99.00},
 }
 
-async function refreshOrders() {
-    let data;
-    try {
-        const res = await fetch('/admin/api/orders');
-        if (!res.ok) return;
-        data = await res.json();
-    } catch (err) { return; }
+# ---------------------------------------------------------------------------
+# Firebase init
+# ---------------------------------------------------------------------------
 
-    document.querySelector('.ov-card:nth-child(1) .ov-figure').textContent = data.pending_count + data.approved_count + data.rejected_count;
-    document.querySelector('.ov-card.pending .ov-figure').textContent = data.pending_count;
-    document.querySelector('.ov-card.approved .ov-figure').textContent = data.approved_count;
-    document.querySelector('.ov-card.rejected .ov-figure').textContent = data.rejected_count;
-    const todayEl = document.querySelector('.earning-row:not(.total) .e-value');
-    const lifetimeEl = document.querySelector('.earning-row.total .e-value');
-    if (todayEl) todayEl.textContent = '৳' + data.today_earning;
-    if (lifetimeEl) lifetimeEl.textContent = '৳' + data.lifetime_earning;
+def init_firebase():
+    if firebase_admin._apps:
+        return
 
-    const totalCount = data.pending_count + data.approved_count + data.rejected_count;
-    const tabs = document.querySelectorAll('#orderTabs .tab-btn');
-    tabs[0].querySelector('.tcount').textContent = totalCount;
-    tabs[1].querySelector('.tcount').textContent = data.pending_count;
-    tabs[2].querySelector('.tcount').textContent = data.approved_count;
-    tabs[3].querySelector('.tcount').textContent = data.rejected_count;
+    creds_json = os.environ.get("FIREBASE_CREDENTIALS_JSON")
+    if creds_json:
+        cred_dict = json.loads(creds_json)
+        cred = credentials.Certificate(cred_dict)
+    else:
+        # Local development fallback: put your downloaded service account
+        # key file next to this script, named firebase-key.json
+        cred = credentials.Certificate("firebase-key.json")
 
-    const ledgerWrap = document.querySelector('.ledger');
-    const emptyBox = document.querySelector('.section .empty');
-    if (totalCount === 0) {
-        if (ledgerWrap) ledgerWrap.style.display = 'none';
-        if (emptyBox) emptyBox.style.display = 'block';
-        return;
+    firebase_admin.initialize_app(cred)
+
+
+init_firebase()
+db = firestore.client()
+
+MESSAGES_COLLECTION = "messages"
+ORDERS_COLLECTION = "orders"
+SETTINGS_COLLECTION = "settings"
+SETTINGS_DOC_ID = "payment_numbers"
+
+
+def get_payment_numbers():
+    """Firestore-এর settings doc থেকে bKash/Nagad নাম্বার পড়ে।
+    কিছু সেভ করা না থাকলে ENV VAR-এর ডিফল্ট নাম্বার ব্যবহার হবে।"""
+    doc = db.collection(SETTINGS_COLLECTION).document(SETTINGS_DOC_ID).get()
+    if doc.exists:
+        data = doc.to_dict()
+        return {
+            "bkash": data.get("bkash") or PAYMENT_NUMBERS["bkash"],
+            "nagad": data.get("nagad") or PAYMENT_NUMBERS["nagad"],
+        }
+    return dict(PAYMENT_NUMBERS)
+
+
+def set_payment_numbers(bkash_number, nagad_number):
+    db.collection(SETTINGS_COLLECTION).document(SETTINGS_DOC_ID).set({
+        "bkash": bkash_number,
+        "nagad": nagad_number,
+    }, merge=True)
+
+
+PIXEL_SETTINGS_DOC_ID = "meta_pixel"
+
+
+def get_pixel_config():
+    """Firestore থেকে Facebook Pixel ID + CAPI access token পড়ে।"""
+    doc = db.collection(SETTINGS_COLLECTION).document(PIXEL_SETTINGS_DOC_ID).get()
+    if doc.exists:
+        data = doc.to_dict()
+        return {
+            "pixel_id": data.get("pixel_id") or "",
+            "pixel_token": data.get("pixel_token") or "",
+        }
+    return {"pixel_id": "", "pixel_token": ""}
+
+
+def set_pixel_config(pixel_id, pixel_token):
+    db.collection(SETTINGS_COLLECTION).document(PIXEL_SETTINGS_DOC_ID).set({
+        "pixel_id": pixel_id,
+        "pixel_token": pixel_token,
+    }, merge=True)
+
+
+def send_purchase_event(order_data):
+    """Order approve হওয়ার পর Meta Conversions API-তে সার্ভার-সাইড
+    Purchase event পাঠায়, যাতে ad boost/campaign-এ conversion হিসেবে
+    কাউন্ট হয়। Pixel সেটাপ করা না থাকলে চুপচাপ কিছু করে না।"""
+    config = get_pixel_config()
+    pixel_id = config["pixel_id"]
+    pixel_token = config["pixel_token"]
+
+    if not pixel_id or not pixel_token:
+        return  # Pixel connect করা নেই, তাই কিছু পাঠাবে না
+
+    try:
+        amount = float(order_data.get("amount") or 0)
+    except (TypeError, ValueError):
+        amount = 0
+
+    user_data = {}
+    if order_data.get("customer_ip"):
+        user_data["client_ip_address"] = order_data["customer_ip"]
+    if order_data.get("user_agent"):
+        user_data["client_user_agent"] = order_data["user_agent"]
+    if order_data.get("customer_fbp"):
+        user_data["fbp"] = order_data["customer_fbp"]
+    if order_data.get("customer_fbc"):
+        user_data["fbc"] = order_data["customer_fbc"]
+    if order_data.get("customer_external_id"):
+        hashed_ext_id = hashlib.sha256(
+            order_data["customer_external_id"].strip().encode("utf-8")
+        ).hexdigest()
+        user_data["external_id"] = [hashed_ext_id]
+    if order_data.get("payer_number"):
+        phone_digits = re.sub(r"\D", "", str(order_data["payer_number"]))
+        if phone_digits.startswith("0"):
+            phone_digits = "88" + phone_digits
+        hashed_phone = hashlib.sha256(phone_digits.encode("utf-8")).hexdigest()
+        user_data["ph"] = [hashed_phone]
+
+    event_payload = {
+        "data": [{
+            "event_name": "Purchase",
+            "event_id": order_data.get("order_id"),
+            "event_time": int(datetime.now().timestamp()),
+            "action_source": "website",
+            "event_source_url": "https://mastighor.shop/order",
+            "user_data": user_data,
+            "custom_data": {
+                "currency": "BDT",
+                "value": amount,
+                "content_name": order_data.get("product_name"),
+                "order_id": order_data.get("order_id"),
+            },
+        }]
     }
-    if (emptyBox) emptyBox.style.display = 'none';
-    if (ledgerWrap) ledgerWrap.style.display = 'block';
 
-    let table = document.querySelector('.ledger table');
-    if (!table) return;
-    const headerRow = table.querySelector('tr');
-    let bodyHtml = '';
-    data.pending.forEach(o => bodyHtml += buildPendingRow(o));
-    data.approved.forEach(o => bodyHtml += buildApprovedRow(o));
-    data.rejected.forEach(o => bodyHtml += buildRejectedRow(o));
-    table.innerHTML = '';
-    table.appendChild(headerRow);
-    table.insertAdjacentHTML('beforeend', bodyHtml);
+    test_event_code = os.environ.get("META_TEST_EVENT_CODE", "").strip()
+    if test_event_code:
+        event_payload["test_event_code"] = test_event_code
 
-    const filter = getActiveFilter();
-    table.querySelectorAll('tr[data-status]').forEach(row => {
-        const show = filter === 'all' || row.dataset.status === filter;
-        row.classList.toggle('row-hidden', !show);
-    });
-}
-setInterval(refreshOrders, 15000);
-document.getElementById('refreshBtn').addEventListener('click', refreshOrders);
+    url = f"https://graph.facebook.com/v21.0/{pixel_id}/events"
+    try:
+        resp = requests.post(
+            url,
+            params={"access_token": pixel_token},
+            json=event_payload,
+            timeout=8,
+        )
+        print(f"[Meta CAPI] Response {resp.status_code}: {resp.text}")
+        if resp.status_code != 200:
+            print(f"[Meta CAPI] Purchase event failed for order {order_data.get('order_id')}")
+        else:
+            print(f"[Meta CAPI] Purchase event sent for order {order_data.get('order_id')}")
+    except requests.RequestException as e:
+        print(f"[Meta CAPI] Purchase event error: {e}")
 
-// ---- Settings modal ----
-(function () {
-    const overlay = document.getElementById('settingsModal');
-    document.getElementById('openSettingsModal').addEventListener('click', () => overlay.classList.add('open'));
-    document.getElementById('closeSettings').addEventListener('click', () => overlay.classList.remove('open'));
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
-})();
+@app.route("/api/capi/event", methods=["POST"])
+def capi_event():
+    """Client-triggered server-side CAPI events (PageView / ViewContent / InitiateCheckout).
+    Fired alongside the browser Pixel so Meta can deduplicate using the shared event_id,
+    boosting Event Match Quality without collecting phone/email."""
+    config = get_pixel_config()
+    pixel_id = config["pixel_id"]
+    pixel_token = config["pixel_token"]
 
-// ---- Reset all history modal (can be opened from Settings) ----
-(function () {
-    const overlay = document.getElementById('resetModal');
-    const settingsOverlay = document.getElementById('settingsModal');
-    const openBtn = document.getElementById('openResetModal');
-    const cancelBtn = document.getElementById('cancelReset');
-    const input = document.getElementById('resetConfirmInput');
-    const confirmBtn = document.getElementById('confirmResetBtn');
+    if not pixel_id or not pixel_token:
+        return jsonify({"status": "ok"})  # Pixel not configured — skip silently
 
-    function openModal() {
-        settingsOverlay.classList.remove('open');
-        overlay.classList.add('open');
-        input.value = '';
-        confirmBtn.disabled = true;
-        input.focus();
+    data = request.get_json(silent=True) or {}
+    event_name = data.get("event_name", "")
+
+    if event_name not in ("PageView", "ViewContent", "InitiateCheckout"):
+        return jsonify({"status": "error", "message": "Invalid event name"}), 400
+
+    event_id = data.get("event_id") or ("capi_" + uuid.uuid4().hex[:12])
+    event_source_url = data.get("event_source_url") or "https://mastighor.shop/"
+
+    customer_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    user_agent = request.headers.get("User-Agent", "")
+
+    user_data = {
+        "client_ip_address": customer_ip,
+        "client_user_agent": user_agent,
     }
-    function closeModal() { overlay.classList.remove('open'); }
+    if data.get("fbp"):
+        user_data["fbp"] = data["fbp"]
+    if data.get("fbc"):
+        user_data["fbc"] = data["fbc"]
+    if data.get("external_id"):
+        hashed_ext = hashlib.sha256(
+            str(data["external_id"]).strip().encode("utf-8")
+        ).hexdigest()
+        user_data["external_id"] = [hashed_ext]
+    if data.get("ph"):
+        phone_digits = re.sub(r"\D", "", str(data["ph"]))
+        if phone_digits.startswith("0"):
+            phone_digits = "88" + phone_digits
+        user_data["ph"] = [hashlib.sha256(phone_digits.encode("utf-8")).hexdigest()]
 
-    openBtn.addEventListener('click', openModal);
-    cancelBtn.addEventListener('click', closeModal);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
-    input.addEventListener('input', () => {
-        confirmBtn.disabled = input.value.trim().toUpperCase() !== 'RESET';
-    });
-})();
+    event_entry = {
+        "event_name": event_name,
+        "event_id": event_id,
+        "event_time": int(datetime.now().timestamp()),
+        "action_source": "website",
+        "event_source_url": event_source_url,
+        "user_data": user_data,
+    }
 
-// ---- Clear pending shortcut -> opens settings/reset flow scoped info (visual only, wire to your own endpoint if needed) ----
-(function () {
-    const overlay = document.getElementById('clearPendingModal');
-    const openBtn = document.getElementById('clearPendingBtn');
-    const cancelBtn = document.getElementById('cancelClearPending');
-    const input = document.getElementById('clearPendingConfirmInput');
-    const confirmBtn = document.getElementById('confirmClearPendingBtn');
+    custom_data = {}
+    if data.get("content_name"):
+        custom_data["content_name"] = data["content_name"]
+    if data.get("content_ids"):
+        custom_data["content_ids"] = data["content_ids"]
+    if data.get("content_type"):
+        custom_data["content_type"] = data["content_type"]
+    if data.get("value") is not None:
+        try:
+            custom_data["value"] = float(data["value"])
+            custom_data["currency"] = data.get("currency", "BDT")
+        except (TypeError, ValueError):
+            pass
+    if custom_data:
+        event_entry["custom_data"] = custom_data
 
-    openBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        overlay.classList.add('open');
-        input.value = '';
-        confirmBtn.disabled = true;
-        input.focus();
-    });
-    cancelBtn.addEventListener('click', () => overlay.classList.remove('open'));
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
-    input.addEventListener('input', () => {
-        confirmBtn.disabled = input.value.trim().toUpperCase() !== 'CLEAR';
-    });
-})();
+    event_payload = {"data": [event_entry]}
+    test_event_code = os.environ.get("META_TEST_EVENT_CODE", "").strip()
+    if test_event_code:
+        event_payload["test_event_code"] = test_event_code
 
-// ---- Order status filter tabs ----
-(function () {
-    const tabs = document.querySelectorAll('#orderTabs .tab-btn');
-    tabs.forEach(btn => {
-        btn.addEventListener('click', () => {
-            tabs.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const filter = btn.dataset.filter;
-            document.querySelectorAll('tr[data-status]').forEach(row => {
-                const show = filter === 'all' || row.dataset.status === filter;
-                row.classList.toggle('row-hidden', !show);
-            });
-        });
-    });
-})();
+    url = f"https://graph.facebook.com/v21.0/{pixel_id}/events"
+    try:
+        resp = requests.post(
+            url,
+            params={"access_token": pixel_token},
+            json=event_payload,
+            timeout=8,
+        )
+        print(f"[Meta CAPI] {event_name} Response {resp.status_code}: {resp.text[:200]}")
+    except requests.RequestException as e:
+        print(f"[Meta CAPI] {event_name} error: {e}")
 
-// ---- Support FAB (placeholder action — wire to your support channel) ----
-document.getElementById('supportFab').addEventListener('click', () => {
-    window.location.href = 'mailto:support@jsi.example';
-});
+    return jsonify({"status": "ok"})
 
 
-</script>
-</body>
-</html>
+# ---------------------------------------------------------------------------
+# SMS parsing helpers (unchanged)
+# ---------------------------------------------------------------------------
+
+def extract_amount(message: str):
+    match = re.search(r"Tk\.?\s?([\d,]+\.?\d*)", message, re.IGNORECASE)
+    if match:
+        return match.group(1).replace(",", "")
+    return None
+
+
+def extract_trx_id(message: str):
+    match = re.search(r"T(?:xn|rx)ID:?\s?([A-Za-z0-9]+)", message, re.IGNORECASE)
+    if match:
+        return match.group(1)
+    return None
+
+
+def extract_payer_number(message: str):
+    match = re.search(r"(?:Sender:|from)\s?(01\d{9})", message, re.IGNORECASE)
+    if match:
+        return match.group(1)
+    return None
+
+
+def normalize_amount(value):
+    try:
+        return round(float(str(value).replace(",", "").strip()), 2)
+    except (TypeError, ValueError):
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Order matching helpers (Firestore versions)
+# ---------------------------------------------------------------------------
+
+def find_matching_message(txn_id, amount):
+    """Find a stored SMS message with a matching txn_id + amount that
+    hasn't already been used to approve a different order.
+
+    IMPORTANT: once a txn_id has been used to approve ANY order, it can
+    never be used to approve another order again - even if a duplicate
+    SMS message with the same txn_id exists in the messages collection.
+    This prevents the same transaction ID from being reused to approve
+    multiple orders.
+    """
+    if not txn_id:
+        return None
+
+    target_amount = normalize_amount(amount)
+    txn_upper = txn_id.upper()
+
+    # Block reuse: if this txn_id has already approved an order, stop here.
+    already_approved = list(
+        db.collection(ORDERS_COLLECTION)
+        .where("submitted_txn_id_upper", "==", txn_upper)
+        .where("status", "==", "approved")
+        .limit(1)
+        .stream()
+    )
+    if already_approved:
+        return None
+
+    query = db.collection(MESSAGES_COLLECTION).where("trx_id_upper", "==", txn_upper)
+    docs = list(query.stream())
+    # newest first
+    docs.sort(key=lambda d: d.to_dict().get("received_at", ""), reverse=True)
+
+    for doc in docs:
+        data = doc.to_dict()
+        if normalize_amount(data.get("amount")) != target_amount:
+            continue
+
+        already_used = list(
+            db.collection(ORDERS_COLLECTION)
+            .where("matched_message_id", "==", doc.id)
+            .limit(1)
+            .stream()
+        )
+        if not already_used:
+            return doc.id, data
+
+    return None
+
+
+def try_approve_order(order_ref, order_data):
+    if order_data.get("status") in ("approved", "rejected"):
+        return order_data
+
+    result = find_matching_message(order_data.get("submitted_txn_id"), order_data.get("amount"))
+    if result:
+        msg_id, msg_data = result
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        order_ref.update({
+            "status": "approved",
+            "matched_message_id": msg_id,
+            "approved_at": now,
+            "payer_number": msg_data.get("payer_number"),
+        })
+        order_data = order_ref.get().to_dict()
+        send_purchase_event(order_data)
+
+    return order_data
+
+
+# ---------------------------------------------------------------------------
+# SMS webhook
+# ---------------------------------------------------------------------------
+
+@app.route("/api/sms-webhook", methods=["POST"])
+def sms_webhook():
+    if not API_TOKEN:
+        return jsonify({"status": "error", "message": "Server misconfigured: API_TOKEN not set"}), 500
+
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.replace("Bearer ", "").strip()
+
+    if token != API_TOKEN:
+        return jsonify({"status": "error", "message": "Invalid token"}), 401
+
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"status": "error", "message": "Invalid JSON body"}), 400
+
+    sender = data.get("sender", "")
+    message = data.get("message", "")
+
+    if not sender or not message:
+        return jsonify({"status": "error", "message": "sender/message required"}), 400
+
+    amount = extract_amount(message)
+    trx_id = extract_trx_id(message)
+    payer_number = extract_payer_number(message)
+    received_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    doc_ref = db.collection(MESSAGES_COLLECTION).document()
+    doc_ref.set({
+        "sender": sender,
+        "message": message,
+        "amount": amount,
+        "trx_id": trx_id,
+        "trx_id_upper": trx_id.upper() if trx_id else None,
+        "payer_number": payer_number,
+        "received_at": received_at,
+        "timestamp": firestore.SERVER_TIMESTAMP,
+    })
+
+    print(f"[{received_at}] New SMS from {sender}: {message}")
+
+    if trx_id:
+        waiting_orders = db.collection(ORDERS_COLLECTION) \
+            .where("status", "==", "verifying") \
+            .where("submitted_txn_id_upper", "==", trx_id.upper()) \
+            .stream()
+        for order_doc in waiting_orders:
+            try_approve_order(order_doc.reference, order_doc.to_dict())
+
+    return jsonify({"status": "ok", "amount": amount, "trx_id": trx_id}), 200
+
+
+@app.route("/")
+def home():
+    pixel = get_pixel_config()
+    pv_event_id = "pv_idx_" + uuid.uuid4().hex[:12]
+    return render_template("index.html", pixel_id=pixel["pixel_id"], pv_event_id=pv_event_id)
+
+
+@app.route("/dashboard")
+def dashboard():
+    docs = db.collection(MESSAGES_COLLECTION) \
+        .order_by("timestamp", direction=firestore.Query.DESCENDING) \
+        .limit(100) \
+        .stream()
+
+    rows = []
+    for doc in docs:
+        row = doc.to_dict()
+        row["id"] = doc.id
+        rows.append(row)
+
+    return render_template("dashboard.html", messages=rows)
+
+
+@app.route("/api/messages", methods=["GET"])
+def list_messages():
+    docs = db.collection(MESSAGES_COLLECTION) \
+        .order_by("timestamp", direction=firestore.Query.DESCENDING) \
+        .limit(100) \
+        .stream()
+
+    result = []
+    for doc in docs:
+        row = doc.to_dict()
+        row["id"] = doc.id
+        row.pop("timestamp", None)
+        result.append(row)
+
+    return jsonify(result)
+
+
+# ---------------------------------------------------------------------------
+# Customer-facing order/checkout routes
+# ---------------------------------------------------------------------------
+
+@app.route("/order")
+def order_page():
+    product_id = request.args.get("product", "").strip()
+    product = PRODUCTS.get(product_id)
+    pixel = get_pixel_config()
+    pv_event_id = "pv_co_" + uuid.uuid4().hex[:12]
+
+    return render_template(
+        "checkout.html",
+        product_id=product_id,
+        product=product,
+        pixel_id=pixel["pixel_id"],
+        pv_event_id=pv_event_id,
+    )
+
+
+@app.route("/api/orders/create", methods=["POST"])
+def create_order():
+    data = request.get_json(silent=True) or {}
+    product_id = (data.get("product_id") or "").strip()
+    payment_method = data.get("payment_method", "")
+    fbp = (data.get("fbp") or "").strip() or None
+    fbc = (data.get("fbc") or "").strip() or None
+    external_id = (data.get("external_id") or "").strip() or None
+
+    product = PRODUCTS.get(product_id)
+    if not product:
+        return jsonify({"status": "error", "message": "Invalid product"}), 400
+
+    current_numbers = get_payment_numbers()
+    if payment_method not in current_numbers:
+        return jsonify({"status": "error", "message": "Invalid payment method"}), 400
+
+    order_id = "ORD-" + uuid.uuid4().hex[:10].upper()
+    amount = f"{product['price']:.2f}"
+    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    customer_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    user_agent = request.headers.get("User-Agent", "")
+
+    db.collection(ORDERS_COLLECTION).document(order_id).set({
+        "order_id": order_id,
+        "product_id": product_id,
+        "product_name": product["name"],
+        "amount": amount,
+        "payment_method": payment_method,
+        "submitted_txn_id": None,
+        "submitted_txn_id_upper": None,
+        "matched_message_id": None,
+        "status": "pending",
+        "created_at": created_at,
+        "approved_at": None,
+        "customer_ip": customer_ip,
+        "user_agent": user_agent,
+        "customer_fbp": fbp,
+        "customer_fbc": fbc,
+        "customer_external_id": external_id,
+        "timestamp": firestore.SERVER_TIMESTAMP,
+    })
+
+    return jsonify({
+        "status": "ok",
+        "order_id": order_id,
+        "product_name": product["name"],
+        "amount": amount,
+        "payment_method": payment_method,
+        "payment_number": current_numbers[payment_method],
+    })
+
+
+@app.route("/api/orders/verify", methods=["POST"])
+def verify_order():
+    data = request.get_json(silent=True) or {}
+    order_id = data.get("order_id", "").strip()
+    txn_id = data.get("txn_id", "").strip()
+
+    if not order_id or not txn_id:
+        return jsonify({"status": "error", "message": "order_id and txn_id required"}), 400
+
+    order_ref = db.collection(ORDERS_COLLECTION).document(order_id)
+    order_snap = order_ref.get()
+    if not order_snap.exists:
+        return jsonify({"status": "error", "message": "Order not found"}), 404
+
+    order_data = order_snap.to_dict()
+
+    if order_data["status"] == "approved":
+        return jsonify({"status": "approved", "order_id": order_id})
+    if order_data["status"] == "rejected":
+        return jsonify({"status": "rejected", "order_id": order_id})
+
+    order_ref.update({
+        "submitted_txn_id": txn_id,
+        "submitted_txn_id_upper": txn_id.upper(),
+        "status": "verifying",
+    })
+    order_data = order_ref.get().to_dict()
+    order_data = try_approve_order(order_ref, order_data)
+
+    return jsonify({"status": order_data["status"], "order_id": order_id})
+
+
+@app.route("/api/orders/status/<order_id>")
+def order_status(order_id):
+    order_snap = db.collection(ORDERS_COLLECTION).document(order_id).get()
+    if not order_snap.exists:
+        return jsonify({"status": "error", "message": "Order not found"}), 404
+
+    order_data = order_snap.to_dict()
+    return jsonify({
+        "status": order_data["status"],
+        "order_id": order_data["order_id"],
+        "product_name": order_data["product_name"],
+        "amount": order_data["amount"],
+    })
+
+
+# ---------------------------------------------------------------------------
+# Admin panel
+# ---------------------------------------------------------------------------
+
+def admin_required(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not session.get("admin"):
+            return redirect(url_for("admin_login"))
+        return func(*args, **kwargs)
+    return wrapper
+
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    error = None
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        if password and password == ADMIN_PASSWORD:
+            session["admin"] = True
+            return redirect(url_for("admin_panel"))
+        error = "Wrong password"
+    return render_template("admin_login.html", error=error)
+
+
+@app.route("/admin/logout")
+def admin_logout():
+    session.pop("admin", None)
+    return redirect(url_for("admin_login"))
+
+
+def _fetch_orders_by_status(statuses):
+    docs = db.collection(ORDERS_COLLECTION).where("status", "in", statuses).stream()
+    rows = [doc.to_dict() for doc in docs]
+    rows.sort(key=lambda r: r.get("created_at", ""), reverse=True)
+    return rows
+
+
+def _calculate_earnings(approved_orders):
+    """Approved অর্ডারগুলোর amount যোগ করে lifetime earning বের করে,
+    আর approved_at-এর date আজকের date-এর সাথে মিললে সেটা today's
+    earning-এ যোগ করে। today's earning প্রতিদিন নিজে থেকেই আপডেট হয়,
+    কোনো manual reset লাগে না - কারণ এটা প্রতিবার request-এ আজকের
+    date filter করে বের করা হয়, DB-তে আলাদা করে store করা হয় না।"""
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    total = 0.0
+    today_total = 0.0
+    for o in approved_orders:
+        try:
+            amt = float(o.get("amount") or 0)
+        except (TypeError, ValueError):
+            amt = 0.0
+        total += amt
+
+        approved_at = o.get("approved_at") or ""
+        if approved_at.startswith(today_str):
+            today_total += amt
+
+    return {
+        "lifetime_earning": f"{total:.2f}",
+        "today_earning": f"{today_total:.2f}",
+    }
+
+
+@app.route("/admin/api/orders")
+@admin_required
+def admin_api_orders():
+    pending = _fetch_orders_by_status(["pending", "verifying"])
+    approved = _fetch_orders_by_status(["approved"])
+    rejected = _fetch_orders_by_status(["rejected"])
+    earnings = _calculate_earnings(approved)
+
+    return jsonify({
+        "pending_count": len(pending),
+        "approved_count": len(approved),
+        "rejected_count": len(rejected),
+        "pending": pending,
+        "approved": approved,
+        "rejected": rejected,
+        "lifetime_earning": earnings["lifetime_earning"],
+        "today_earning": earnings["today_earning"],
+    })
+
+
+@app.route("/admin")
+@admin_required
+def admin_panel():
+    pending = _fetch_orders_by_status(["pending", "verifying"])
+    approved = _fetch_orders_by_status(["approved"])
+    rejected = _fetch_orders_by_status(["rejected"])
+    numbers = get_payment_numbers()
+    earnings = _calculate_earnings(approved)
+    pixel = get_pixel_config()
+
+    return render_template(
+        "admin.html",
+        pending=pending,
+        approved=approved,
+        rejected=rejected,
+        pending_count=len(pending),
+        approved_count=len(approved),
+        rejected_count=len(rejected),
+        bkash_number=numbers["bkash"],
+        nagad_number=numbers["nagad"],
+        lifetime_earning=earnings["lifetime_earning"],
+        today_earning=earnings["today_earning"],
+        pixel_id=pixel["pixel_id"],
+        pixel_token=pixel["pixel_token"],
+        pixel_connected=bool(pixel["pixel_id"] and pixel["pixel_token"]),
+    )
+
+
+@app.route("/admin/settings/numbers", methods=["POST"])
+@admin_required
+def admin_save_numbers():
+    current = get_payment_numbers()
+    bkash_number = request.form.get("bkash_number", "").strip() or current["bkash"]
+    nagad_number = request.form.get("nagad_number", "").strip() or current["nagad"]
+    set_payment_numbers(bkash_number, nagad_number)
+    return redirect(url_for("admin_panel"))
+
+
+@app.route("/admin/orders/<order_id>/approve", methods=["POST"])
+@admin_required
+def admin_approve(order_id):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    order_ref = db.collection(ORDERS_COLLECTION).document(order_id)
+    order_ref.update({
+        "status": "approved",
+        "approved_at": now,
+    })
+    order_data = order_ref.get().to_dict()
+    send_purchase_event(order_data)
+    return redirect(url_for("admin_panel"))
+
+
+@app.route("/admin/orders/<order_id>/reject", methods=["POST"])
+@admin_required
+def admin_reject(order_id):
+    db.collection(ORDERS_COLLECTION).document(order_id).update({"status": "rejected"})
+    return redirect(url_for("admin_panel"))
+
+
+@app.route("/admin/pixel/save", methods=["POST"])
+@admin_required
+def admin_save_pixel():
+    pixel_id = request.form.get("pixel_id", "").strip()
+    pixel_token = request.form.get("pixel_token", "").strip()
+    set_pixel_config(pixel_id, pixel_token)
+    return redirect(url_for("admin_panel"))
+
+
+@app.route("/admin/history/reset", methods=["POST"])
+@admin_required
+def admin_reset_history():
+    """Deletes every order (pending, approved, rejected) from Firestore.
+    This cannot be undone."""
+    docs = db.collection(ORDERS_COLLECTION).stream()
+    deleted = 0
+    for doc in docs:
+        doc.reference.delete()
+        deleted += 1
+    print(f"Admin reset: deleted {deleted} order(s) from the ledger.")
+    return redirect(url_for("admin_panel"))
+
+
+@app.route("/admin/pending/clear", methods=["POST"])
+@admin_required
+def admin_clear_pending():
+    """Deletes only orders with status 'pending' or 'verifying'.
+    Approved and rejected orders are left untouched."""
+    docs = db.collection(ORDERS_COLLECTION).where("status", "in", ["pending", "verifying"]).stream()
+    deleted = 0
+    for doc in docs:
+        doc.reference.delete()
+        deleted += 1
+    print(f"Admin clear pending: deleted {deleted} pending order(s).")
+    return redirect(url_for("admin_panel"))
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    print(f"Dashboard: http://localhost:{port}")
+    print(f"Webhook endpoint: http://<PC-IP>:{port}/api/sms-webhook")
+    app.run(host="0.0.0.0", port=port, debug=False)
