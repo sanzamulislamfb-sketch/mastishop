@@ -768,28 +768,14 @@ def admin_save_pixel():
 @app.route("/admin/history/reset", methods=["POST"])
 @admin_required
 def admin_reset_history():
-    """Deletes every order (pending, approved, rejected) from Firestore.
-    This cannot be undone."""
+    """Pending, approved, rejected - সব অর্ডার Firestore থেকে
+    permanently ডিলিট করে দেয়। এটা undo করা যায় না।"""
     docs = db.collection(ORDERS_COLLECTION).stream()
     deleted = 0
     for doc in docs:
         doc.reference.delete()
         deleted += 1
     print(f"Admin reset: deleted {deleted} order(s) from the ledger.")
-    return redirect(url_for("admin_panel"))
-
-
-@app.route("/admin/pending/clear", methods=["POST"])
-@admin_required
-def admin_clear_pending():
-    """Deletes only orders with status 'pending' or 'verifying'.
-    Approved and rejected orders are left untouched."""
-    docs = db.collection(ORDERS_COLLECTION).where("status", "in", ["pending", "verifying"]).stream()
-    deleted = 0
-    for doc in docs:
-        doc.reference.delete()
-        deleted += 1
-    print(f"Admin clear pending: deleted {deleted} pending order(s).")
     return redirect(url_for("admin_panel"))
 
 
