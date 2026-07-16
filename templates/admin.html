@@ -375,31 +375,7 @@
             </div>
         </div>
 
-        <!-- ---- Chart ---- -->
-        <div class="chart-panel">
-            <div class="chart-head">
-                <div>
-                    <h3>Payment Gateway Transaction Graph</h3>
-                    <p class="sub">bKash, Nagad and pending-order line ratio</p>
-                </div>
-                <div class="ratio-card">
-                    <div class="rc-label">Ratio</div>
-                    <div class="rc-values">
-                        <span class="r-bkash">{{ bkash_ratio | default('9%') }}</span>
-                        <span class="r-nagad">{{ nagad_ratio | default('2%') }}</span>
-                        <span class="r-other">{{ pending_ratio | default('89%') }}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="chart-canvas-wrap">
-                <canvas id="txnChart"></canvas>
-            </div>
-            <div class="chart-legend">
-                <span><i class="sw" style="background:var(--stamp-rejected)"></i>bKash</span>
-                <span><i class="sw" style="background:var(--stamp-pending)"></i>Nagad</span>
-                <span><i class="sw" style="background:var(--ink-faint)"></i>Pending orders</span>
-            </div>
-        </div>
+        
 
         <div class="section">
             <div class="tabs" id="orderTabs">
@@ -767,82 +743,7 @@ document.getElementById('supportFab').addEventListener('click', () => {
     window.location.href = 'mailto:support@jsi.example';
 });
 
-// ---- Payment gateway transaction chart (canvas) ----
-(function () {
-    const canvas = document.getElementById('txnChart');
-    const ctx = canvas.getContext('2d');
 
-    // Default illustrative series — replace with server-rendered data if available.
-    const chartData = {
-        labels: ['W1','W2','W3','W4','W5','W6','W7','W8'],
-        pending: [30, 26, 22, 38, 55, 44, 48, 78],
-        bkash:   [4, 4, 5, 6, 7, 8, 9, 12],
-        nagad:   [2, 2, 3, 3, 4, 4, 5, 6]
-    };
-
-    function draw() {
-        const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.parentElement.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        const w = rect.width, h = rect.height;
-        ctx.clearRect(0, 0, w, h);
-
-        const pad = { top: 10, right: 10, bottom: 10, left: 10 };
-        const plotW = w - pad.left - pad.right;
-        const plotH = h - pad.top - pad.bottom;
-        const maxVal = Math.max(...chartData.pending, ...chartData.bkash, ...chartData.nagad) * 1.15;
-        const n = chartData.labels.length;
-        const stepX = plotW / (n - 1);
-
-        function xAt(i) { return pad.left + i * stepX; }
-        function yAt(v) { return pad.top + plotH - (v / maxVal) * plotH; }
-
-        // grid lines
-        ctx.strokeStyle = 'rgba(154,143,124,0.12)';
-        ctx.lineWidth = 1;
-        for (let g = 0; g < 4; g++) {
-            const gy = pad.top + (plotH / 3) * g;
-            ctx.beginPath(); ctx.moveTo(pad.left, gy); ctx.lineTo(w - pad.right, gy); ctx.stroke();
-        }
-
-        function linePath(series) {
-            ctx.beginPath();
-            series.forEach((v, i) => {
-                const x = xAt(i), y = yAt(v);
-                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-            });
-        }
-
-        // filled area under pending line
-        ctx.beginPath();
-        chartData.pending.forEach((v, i) => {
-            const x = xAt(i), y = yAt(v);
-            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        });
-        ctx.lineTo(xAt(n - 1), pad.top + plotH);
-        ctx.lineTo(xAt(0), pad.top + plotH);
-        ctx.closePath();
-        const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
-        grad.addColorStop(0, 'rgba(154,143,124,0.28)');
-        grad.addColorStop(1, 'rgba(154,143,124,0.02)');
-        ctx.fillStyle = grad;
-        ctx.fill();
-
-        linePath(chartData.pending);
-        ctx.strokeStyle = '#9A8F7C'; ctx.lineWidth = 2; ctx.stroke();
-
-        linePath(chartData.bkash);
-        ctx.strokeStyle = '#B24A40'; ctx.lineWidth = 2; ctx.stroke();
-
-        linePath(chartData.nagad);
-        ctx.strokeStyle = '#C89B3C'; ctx.lineWidth = 2; ctx.stroke();
-    }
-
-    draw();
-    window.addEventListener('resize', draw);
-})();
 </script>
 </body>
 </html>
