@@ -720,7 +720,6 @@ def admin_panel():
         lifetime_earning=earnings["lifetime_earning"],
         today_earning=earnings["today_earning"],
         pixel_id=pixel["pixel_id"],
-        pixel_token=pixel["pixel_token"],
         pixel_connected=bool(pixel["pixel_id"] and pixel["pixel_token"]),
     )
 
@@ -752,15 +751,21 @@ def admin_approve(order_id):
 @app.route("/admin/orders/<order_id>/reject", methods=["POST"])
 @admin_required
 def admin_reject(order_id):
-    db.collection(ORDERS_COLLECTION).document(order_id).update({"status": "rejected"})
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    db.collection(ORDERS_COLLECTION).document(order_id).update({
+        "status": "rejected",
+        "rejected_at": now,
+    })
     return redirect(url_for("admin_panel"))
 
 
 @app.route("/admin/pixel/save", methods=["POST"])
 @admin_required
 def admin_save_pixel():
-    pixel_id = request.form.get("pixel_id", "").strip()
-    pixel_token = request.form.get("pixel_token", "").strip()
+    current = get_pixel_config()
+    pixel_id = request.form.get("pixel_id", "").strip() or current["pixel_id"]
+    submitted_token = request.form.get("pixel_token", "").strip()
+    pixel_token = submitted_token if submitted_token else current["pixel_token"]
     set_pixel_config(pixel_id, pixel_token)
     return redirect(url_for("admin_panel"))
 
