@@ -434,7 +434,7 @@
                     <td>{{ o['payment_method'] }}</td>
                     <td class="mono">{{ o['submitted_txn_id'] or '-' }}</td>
                     <td><span class="stamp rejected">rejected</span></td>
-                    <td>&mdash;</td>
+                    <td class="mono">{{ o['rejected_at'] or '-' }}</td>
                     <td>&mdash;</td>
                 </tr>
                 {% endfor %}
@@ -501,7 +501,7 @@
                     </div>
                     <div class="pixel-field">
                         <label>Access Token</label>
-                        <input type="password" name="pixel_token" placeholder="Meta system-user access token" value="{{ pixel_token or '' }}">
+                        <input type="password" name="pixel_token" placeholder="{{ 'Leave blank to keep existing token' if pixel_connected else 'Meta system-user access token' }}" value="">
                     </div>
                     <div class="pixel-actions">
                         <button class="pixel-connect" type="submit">Save &amp; connect</button>
@@ -603,7 +603,7 @@ function buildRejectedRow(o) {
         <td>${escapeHtml(o.payment_method)}</td>
         <td class="mono">${escapeHtml(o.submitted_txn_id)}</td>
         <td><span class="stamp rejected">rejected</span></td>
-        <td>&mdash;</td>
+        <td class="mono">${escapeHtml(o.rejected_at)}</td>
         <td>&mdash;</td>
     </tr>`;
 }
