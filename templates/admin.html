@@ -563,6 +563,21 @@
         </div>
     </div>
 
+    <!-- ---- Clear pending confirm modal ---- -->
+    <div class="modal-overlay" id="clearPendingModal">
+        <div class="modal-box danger">
+            <h3>Clear all pending requests?</h3>
+            <p>Every order currently marked pending will be permanently deleted. Approved and rejected records will not be touched. Type <b>CLEAR</b> below to confirm.</p>
+            <form method="POST" action="/admin/pending/clear" id="clearPendingForm">
+                <input class="confirm-input" type="text" id="clearPendingConfirmInput" placeholder="Type CLEAR" autocomplete="off">
+                <div class="modal-actions">
+                    <button class="cancel-btn" type="button" id="cancelClearPending">Cancel</button>
+                    <button class="confirm-btn" type="submit" id="confirmClearPendingBtn" disabled>Yes, clear pending</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 <script>
 // ---- Auto-refresh order data every 15s without a full page reload ----
 function escapeHtml(str) {
@@ -710,11 +725,26 @@ document.getElementById('refreshBtn').addEventListener('click', refreshOrders);
 })();
 
 // ---- Clear pending shortcut -> opens settings/reset flow scoped info (visual only, wire to your own endpoint if needed) ----
-document.getElementById('clearPendingBtn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    document.getElementById('resetModal').classList.add('open');
-    document.getElementById('resetConfirmInput').focus();
-});
+(function () {
+    const overlay = document.getElementById('clearPendingModal');
+    const openBtn = document.getElementById('clearPendingBtn');
+    const cancelBtn = document.getElementById('cancelClearPending');
+    const input = document.getElementById('clearPendingConfirmInput');
+    const confirmBtn = document.getElementById('confirmClearPendingBtn');
+
+    openBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        overlay.classList.add('open');
+        input.value = '';
+        confirmBtn.disabled = true;
+        input.focus();
+    });
+    cancelBtn.addEventListener('click', () => overlay.classList.remove('open'));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
+    input.addEventListener('input', () => {
+        confirmBtn.disabled = input.value.trim().toUpperCase() !== 'CLEAR';
+    });
+})();
 
 // ---- Order status filter tabs ----
 (function () {
