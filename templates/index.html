@@ -48,8 +48,8 @@
         var extId = localStorage.getItem('fz_ext_id');
         if (!extId) { extId = 'ext_' + Date.now() + '_' + Math.random().toString(36).slice(2); localStorage.setItem('fz_ext_id', extId); }
         window.__fzExternalId = extId;
-        var pvEvId = '{{ pv_event_id }}';
-        {% if pixel_id %} fbq('init', '{{ pixel_id }}', { external_id: extId });
+        var pvEvId = 'pv_idx_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+        fbq('init', '1107807625312374', { external_id: extId });
         fbq('track', 'PageView', {}, { eventID: pvEvId });
         setTimeout(function () {
           try {
@@ -61,7 +61,6 @@
             });
           } catch (e2) { }
         }, 600);
-        {% endif %}
       } catch (e) { }
     })();
   </script><noscript><img height="1" width="1" style="display:none"
