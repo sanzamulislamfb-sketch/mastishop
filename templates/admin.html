@@ -105,6 +105,10 @@
     }
     .mini-clear:hover { color: var(--stamp-rejected); border-color: var(--stamp-rejected); }
 
+    .ov-card.filter-card { cursor: pointer; }
+    .ov-card.filter-card:hover { border-color: var(--gold-dim); }
+    .ov-card.filter-card.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-dim); }
+
     .ov-card.earning {
         background: linear-gradient(160deg, rgba(200,155,60,0.10), var(--paper));
         border-color: var(--gold-dim); display: flex; flex-direction: column; gap: 10px;
@@ -345,19 +349,19 @@
 
         <!-- ---- Overview stat cards ---- -->
         <div class="overview">
-            <div class="ov-card">
+            <div class="ov-card filter-card active" data-filter="all">
                 <div class="ov-label">Total Requests</div>
                 <div class="ov-figure">{{ pending_count + approved_count + rejected_count }}</div>
             </div>
-            <div class="ov-card pending">
+            <div class="ov-card pending filter-card" data-filter="pending">
                 <div class="ov-label">Pending Payment <span class="mini-clear" id="clearPendingBtn">Clear</span></div>
                 <div class="ov-figure">{{ pending_count }}</div>
             </div>
-            <div class="ov-card approved">
+            <div class="ov-card approved filter-card" data-filter="approved">
                 <div class="ov-label">Approved Bookings</div>
                 <div class="ov-figure">{{ approved_count }}</div>
             </div>
-            <div class="ov-card rejected">
+            <div class="ov-card rejected filter-card" data-filter="rejected">
                 <div class="ov-label">Rejected List</div>
                 <div class="ov-figure">{{ rejected_count }}</div>
             </div>
@@ -378,12 +382,7 @@
         
 
         <div class="section">
-            <div class="tabs" id="orderTabs">
-                <button class="tab-btn active" data-filter="all">All <span class="tcount">{{ pending_count + approved_count + rejected_count }}</span></button>
-                <button class="tab-btn" data-filter="pending">Pending <span class="tcount">{{ pending_count }}</span></button>
-                <button class="tab-btn" data-filter="approved">Approved <span class="tcount">{{ approved_count }}</span></button>
-                <button class="tab-btn" data-filter="rejected">Rejected <span class="tcount">{{ rejected_count }}</span></button>
-            </div>
+            
 
             {% if pending or approved or rejected %}
             <div class="ledger">
@@ -608,8 +607,8 @@ function buildRejectedRow(o) {
     </tr>`;
 }
 function getActiveFilter() {
-    const activeBtn = document.querySelector('#orderTabs .tab-btn.active');
-    return activeBtn ? activeBtn.dataset.filter : 'all';
+    const activeCard = document.querySelector('.filter-card.active');
+    return activeCard ? activeCard.dataset.filter : 'all';
 }
 
 async function refreshOrders() {
@@ -630,11 +629,6 @@ async function refreshOrders() {
     if (lifetimeEl) lifetimeEl.textContent = '৳' + data.lifetime_earning;
 
     const totalCount = data.pending_count + data.approved_count + data.rejected_count;
-    const tabs = document.querySelectorAll('#orderTabs .tab-btn');
-    tabs[0].querySelector('.tcount').textContent = totalCount;
-    tabs[1].querySelector('.tcount').textContent = data.pending_count;
-    tabs[2].querySelector('.tcount').textContent = data.approved_count;
-    tabs[3].querySelector('.tcount').textContent = data.rejected_count;
 
     const ledgerWrap = document.querySelector('.ledger');
     const emptyBox = document.querySelector('.section .empty');
@@ -722,14 +716,14 @@ document.getElementById('refreshBtn').addEventListener('click', refreshOrders);
     });
 })();
 
-// ---- Order status filter tabs ----
+// ---- Stat card filter ----
 (function () {
-    const tabs = document.querySelectorAll('#orderTabs .tab-btn');
-    tabs.forEach(btn => {
-        btn.addEventListener('click', () => {
-            tabs.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const filter = btn.dataset.filter;
+    const cards = document.querySelectorAll('.filter-card');
+    cards.forEach(card => {
+        card.addEventListener('click', () => {
+            cards.forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            const filter = card.dataset.filter;
             document.querySelectorAll('tr[data-status]').forEach(row => {
                 const show = filter === 'all' || row.dataset.status === filter;
                 row.classList.toggle('row-hidden', !show);
